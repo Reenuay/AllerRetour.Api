@@ -9,18 +9,19 @@ let webApp =
     route "/" >=> text "It works!"
   ]
 
-let configureApp (app : IApplicationBuilder) =
-  app.UseGiraffe webApp
+type Startup() =
+  member _.Configure(app : IApplicationBuilder) =
+    app.UseHttpsRedirection() |> ignore
+    app.UseGiraffe webApp
 
-let configureServices (services : IServiceCollection) =
-  services.AddGiraffe() |> ignore
+  member _.ConfigureServices(services : IServiceCollection) =
+    services.AddGiraffe() |> ignore
 
 [<EntryPoint>]
 let main _ =
   WebHostBuilder()
     .UseKestrel()
-    .Configure(Action<IApplicationBuilder> configureApp)
-    .ConfigureServices(configureServices)
+    .UseStartup<Startup>()
     .Build()
     .Run()
   0
