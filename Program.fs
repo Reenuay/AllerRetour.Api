@@ -1,27 +1,52 @@
 open System
+open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
+open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
+open System.IO
+open Microsoft.AspNetCore
 
 let webApp =
   choose [
     route "/" >=> text "It works!"
+    RequestErrors.NOT_FOUND "Not found"
   ]
 
-type Startup() =
+type Startup(env : IWebHostEnvironment) =
   member _.Configure(app : IApplicationBuilder) =
-    app.UseHttpsRedirection() |> ignore
+    match env.EnvironmentName with
+    | "Development" -> app.UseDeveloperExceptionPage()
+    | "Production"  -> app.UseHttpsRedirection().UseHsts()
+    | _             -> app
+    |> ignore
+
     app.UseGiraffe webApp
 
   member _.ConfigureServices(services : IServiceCollection) =
     services.AddGiraffe() |> ignore
 
-[<EntryPoint>]
-let main _ =
+let buildWebHost (args : string array) =
   WebHostBuilder()
     .UseKestrel()
+    .UseContentRoot(Directory.GetCurrentDirectory())
+    .ConfigureAppConfiguration(
+      fun ctx builder ->
+        let env = ctx.HostingEnvironment
+
+        builder
+          .SetBasePath(env.ContentRootPath)
+          .AddYamlFile("appsettings.yml")
+          .AddYamlFile(sprintf "appsettings.%s.yml" env.EnvironmentName, true, true)
+          .AddEnvironmentVariables()
+          .AddCommandLine(args)
+          |> ignore
+    )
     .UseStartup<Startup>()
     .Build()
-    .Run()
+
+[<EntryPoint>]
+let main args =
+  (buildWebHost args).Run()
   0

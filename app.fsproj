@@ -10,11 +10,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="appsettings.yml" >
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Giraffe" Version="4.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.App" Version="2.2.7" />
+    <PackageReference Include="NetEscapades.Configuration.Yaml" Version="1.6.0" />
   </ItemGroup>
 
 </Project>
