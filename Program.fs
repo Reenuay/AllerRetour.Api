@@ -1,12 +1,10 @@
 open System
-open Microsoft.AspNetCore.Http
+open System.IO
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
-open System.IO
-open Microsoft.AspNetCore
 
 let webApp =
   choose [
