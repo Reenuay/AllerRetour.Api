@@ -2,6 +2,7 @@ open System
 open System.IO
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.Server.Kestrel.Core
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
@@ -12,18 +13,19 @@ let webApp =
     RequestErrors.NOT_FOUND "Not found"
   ]
 
-type Startup(env : IWebHostEnvironment) =
+type Startup(config : IConfiguration, env : IWebHostEnvironment) =
   member _.Configure(app : IApplicationBuilder) =
     match env.EnvironmentName with
     | "Development" -> app.UseDeveloperExceptionPage()
-    | "Production"  -> app.UseHttpsRedirection().UseHsts()
     | _             -> app
     |> ignore
 
     app.UseGiraffe webApp
 
   member _.ConfigureServices(services : IServiceCollection) =
-    services.AddGiraffe() |> ignore
+    services
+      .Configure<KestrelServerOptions>( config.GetSection("Kestrel") )
+      .AddGiraffe() |> ignore
 
 let buildWebHost (args : string array) =
   WebHostBuilder()
