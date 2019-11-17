@@ -14,18 +14,6 @@ let webApp =
     RequestErrors.NOT_FOUND "Not found"
   ]
 
-type Startup(env : IHostEnvironment) =
-  member _.Configure(app : IApplicationBuilder) =
-    match env.EnvironmentName with
-    | "Development" -> app.UseDeveloperExceptionPage()
-    | _             -> app
-    |> ignore
-
-    app.UseGiraffe webApp
-
-  member _.ConfigureServices(services : IServiceCollection) =
-    services.AddGiraffe() |> ignore
-
 let buildWebHost (args : string array) =
   HostBuilder()
     .UseContentRoot(Directory.GetCurrentDirectory())
@@ -49,7 +37,7 @@ let buildWebHost (args : string array) =
           .AddEnvironmentVariables("ASPNETCORE_")
           |> ignore
     )
-    .ConfigureWebHost(
+    .ConfigureWebHostDefaults(
       fun webBuilder ->
         webBuilder
           .UseKestrel(
@@ -59,7 +47,21 @@ let buildWebHost (args : string array) =
               )
               |> ignore
           )
-          .UseStartup<Startup>()
+          .ConfigureServices(
+            fun services ->
+              services.AddGiraffe() |> ignore
+          )
+          .Configure(
+            fun context app ->
+              let env = context.HostingEnvironment
+
+              match env.EnvironmentName with
+              | "Development" -> app.UseDeveloperExceptionPage()
+              | _             -> app
+              |> ignore
+
+              app.UseGiraffe webApp
+          )
           |> ignore
     )
     .Build()
