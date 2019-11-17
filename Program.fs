@@ -3,8 +3,10 @@ open System.IO
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Server.Kestrel.Core
+open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
+
 open Giraffe
 
 let webApp =
@@ -13,7 +15,7 @@ let webApp =
     RequestErrors.NOT_FOUND "Not found"
   ]
 
-type Startup(config : IConfiguration, env : IWebHostEnvironment) =
+type Startup(config : IConfiguration, env : IHostEnvironment) =
   member _.Configure(app : IApplicationBuilder) =
     match env.EnvironmentName with
     | "Development" -> app.UseDeveloperExceptionPage()
