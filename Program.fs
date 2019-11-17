@@ -2,7 +2,6 @@ open System
 open System.IO
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
-open Microsoft.AspNetCore.Server.Kestrel.Core
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
@@ -15,7 +14,7 @@ let webApp =
     RequestErrors.NOT_FOUND "Not found"
   ]
 
-type Startup(config : IConfiguration, env : IHostEnvironment) =
+type Startup(env : IHostEnvironment) =
   member _.Configure(app : IApplicationBuilder) =
     match env.EnvironmentName with
     | "Development" -> app.UseDeveloperExceptionPage()
@@ -25,27 +24,44 @@ type Startup(config : IConfiguration, env : IHostEnvironment) =
     app.UseGiraffe webApp
 
   member _.ConfigureServices(services : IServiceCollection) =
-    services
-      .Configure<KestrelServerOptions>( config.GetSection("Kestrel") )
-      .AddGiraffe() |> ignore
+    services.AddGiraffe() |> ignore
 
 let buildWebHost (args : string array) =
-  WebHostBuilder()
-    .UseKestrel()
+  HostBuilder()
     .UseContentRoot(Directory.GetCurrentDirectory())
+    .ConfigureHostConfiguration(
+      fun builder ->
+        builder
+          .SetBasePath(Directory.GetCurrentDirectory())
+          .AddYamlFile("hostsettings.yml")
+          .AddEnvironmentVariables("DOTNET_")
+          .AddCommandLine(args)
+          |> ignore
+    )
     .ConfigureAppConfiguration(
-      fun ctx builder ->
-        let env = ctx.HostingEnvironment
+      fun context builder ->
+        let env = context.HostingEnvironment
 
         builder
           .SetBasePath(env.ContentRootPath)
           .AddYamlFile("appsettings.yml")
-          .AddYamlFile(sprintf "appsettings.%s.yml" env.EnvironmentName, true, true)
-          .AddEnvironmentVariables()
-          .AddCommandLine(args)
+          .AddYamlFile(sprintf "appsettings.%s.yml" env.EnvironmentName, true)
+          .AddEnvironmentVariables("ASPNETCORE_")
           |> ignore
     )
-    .UseStartup<Startup>()
+    .ConfigureWebHost(
+      fun webBuilder ->
+        webBuilder
+          .UseKestrel(
+            fun context options ->
+              options.Configure(
+                context.Configuration.GetSection("Kestrel")
+              )
+              |> ignore
+          )
+          .UseStartup<Startup>()
+          |> ignore
+    )
     .Build()
 
 [<EntryPoint>]
