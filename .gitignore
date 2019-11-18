@@ -1,5 +1,6 @@
 # vscode extension and project build folders
 .ionide
+.vscode
 bin
 obj
 
