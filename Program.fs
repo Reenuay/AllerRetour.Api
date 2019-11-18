@@ -4,7 +4,6 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Configuration
-open Microsoft.Extensions.DependencyInjection
 
 open Giraffe
 
@@ -14,18 +13,21 @@ let webApp =
     RequestErrors.NOT_FOUND "Not found"
   ]
 
-let buildWebHost (args : string array) =
-  HostBuilder()
-    .UseContentRoot(Directory.GetCurrentDirectory())
+let setHostConfig (basePath : string) (args : string array) (hostBuilder : IHostBuilder) =
+  hostBuilder
+    .UseContentRoot(basePath)
     .ConfigureHostConfiguration(
       fun builder ->
         builder
-          .SetBasePath(Directory.GetCurrentDirectory())
+          .SetBasePath(basePath)
           .AddYamlFile("hostsettings.yml")
           .AddEnvironmentVariables("DOTNET_")
           .AddCommandLine(args)
           |> ignore
     )
+
+let setAppConfig (hostBuilder : IHostBuilder) =
+  hostBuilder
     .ConfigureAppConfiguration(
       fun context builder ->
         let env = context.HostingEnvironment
@@ -37,7 +39,10 @@ let buildWebHost (args : string array) =
           .AddEnvironmentVariables("ASPNETCORE_")
           |> ignore
     )
-    .ConfigureWebHostDefaults(
+
+let setGiraffeAppConfig (giraffeApp : HttpHandler ) (hostBuilder : IHostBuilder) =
+  hostBuilder
+    .ConfigureWebHost(
       fun webBuilder ->
         webBuilder
           .UseKestrel(
@@ -60,13 +65,24 @@ let buildWebHost (args : string array) =
               | _             -> app
               |> ignore
 
-              app.UseGiraffe webApp
+              app.UseGiraffe giraffeApp
           )
           |> ignore
     )
-    .Build()
+
+let buildHost (hostBuilder : IHostBuilder) = hostBuilder.Build()
+
+let run (host : IHost) = host.Run()
 
 [<EntryPoint>]
 let main args =
-  (buildWebHost args).Run()
-  0
+  let basePath = Directory.GetCurrentDirectory()
+
+  HostBuilder()
+  |> setHostConfig basePath args
+  |> setAppConfig
+  |> setGiraffeAppConfig webApp
+  |> buildHost
+  |> run
+
+  0 // exit code
