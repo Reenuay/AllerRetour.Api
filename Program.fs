@@ -7,12 +7,6 @@ open Microsoft.Extensions.Configuration
 open Serilog
 open Giraffe
 
-let webApp =
-  choose [
-    route "/" >=> text "It works!"
-    RequestErrors.NOT_FOUND "Not found"
-  ]
-
 let setHostConfig (basePath : string) (args : string array) (hostBuilder : IHostBuilder) =
   hostBuilder
     .UseContentRoot(basePath)
@@ -96,7 +90,7 @@ let main args =
   HostBuilder()
   |> setHostConfig basePath args
   |> setAppConfig
-  |> setGiraffeAppConfig webApp
+  |> setGiraffeAppConfig Router.app
   |> buildHost
   |> run
 
