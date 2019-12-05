@@ -1,11 +1,11 @@
-open System
-open System.IO
+open Giraffe
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
-open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.Hosting
 open Serilog
-open Giraffe
+open System
+open System.IO
 
 let setHostConfig (basePath : string) (args : string array) (hostBuilder : IHostBuilder) =
   hostBuilder
