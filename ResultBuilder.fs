@@ -49,8 +49,3 @@ let toFatalError = function
 | Ok    s -> Ok s
 
 let errorIfTrue x y = if y then Error x else Ok ()
-
-let drop x =
-  match x with
-  | Error e -> Error e
-  | Ok    s -> Ok ()

@@ -1,6 +1,7 @@
 module Router
 
 open Giraffe
+open Result
 open ResultBuilder
 open Dto
 
@@ -16,14 +17,15 @@ let toHandler = map2 Successful.OK onError
 let register input =
   warbler (fun _ ->
     result {
-      do! Registration.validate input |> drop |> toValidationError
+      let! valid
+        = Registration.validate input
+        |> map Registration.trimName
+        |> toValidationError
 
-      let cleaned = Registration.trimName input
-
-      do! Queue.checkEmailAlreadyRegistered cleaned.Email
+      do! Queue.checkEmailAlreadyRegistered valid.Email
         |> errorIfTrue (Conflict ["Email is already registered"])
 
-      return! (tryCatch Command.registerCustomer cleaned) |> toFatalError
+      return! (tryCatch Command.registerCustomer valid) |> toFatalError
     }
     |> toHandler
   )
