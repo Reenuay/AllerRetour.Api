@@ -1,4 +1,4 @@
-module Database
+module Db
 
 open FSharp.Data.Sql
 
@@ -7,7 +7,7 @@ let [<Literal>] ConnString = "Host=127.0.0.1;Port=5432;Database=aller_retour;Use
 let [<Literal>] UseOptionTypes = true
 let [<Literal>] ResolutionPath = @"../.nuget/packages/npgsql/4.1.2/lib/netcoreapp3.0"
 
-type Sql =
+type AllerRetourSchema =
   SqlDataProvider<
     DbVendor,
     ConnString,
@@ -15,4 +15,7 @@ type Sql =
     ResolutionPath = ResolutionPath
   >
 
-let context = Sql.GetDataContext()
+let ctx = AllerRetourSchema.GetDataContext ()
+let submit = ctx.SubmitUpdates
+let customers = ctx.Public.Customers
+let customerProfiles = ctx.Public.CustomerProfiles

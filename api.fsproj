@@ -8,8 +8,13 @@
   <ItemGroup>
     <Compile Include="Json.fs" />
     <Compile Include="PBKDF2.fs" />
+    <Compile Include="Generators.fs" />
+    <Compile Include="ResultBuilder.fs" />
+    <Compile Include="Validators.fs" />
+    <Compile Include="Db.fs" />
     <Compile Include="Dto.fs" />
-    <Compile Include="Database.fs" />
+    <Compile Include="Queue.fs" />
+    <Compile Include="Command.fs" />
     <Compile Include="Router.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

@@ -1,10 +1,38 @@
 module Router
 
 open Giraffe
+open ResultBuilder
+open Dto
+
+let onError = function
+| Validation e -> Json.serialize e |> RequestErrors.BAD_REQUEST
+| Conflict   e -> Json.serialize e |> RequestErrors.CONFLICT
+| Fatal      e ->
+  printfn "%A" e // TO DO: Add Logs!
+  ServerErrors.INTERNAL_ERROR "Oops! Something went wrong..."
+
+let toHandler = map2 Successful.OK onError
+
+let register input =
+  warbler (fun _ ->
+    result {
+      do! Registration.validate input |> drop |> toValidationError
+
+      let cleaned = Registration.trimName input
+
+      do! Queue.checkEmailAlreadyRegistered cleaned.Email
+        |> errorIfTrue (Conflict ["Email is already registered"])
+
+      return! (tryCatch Command.registerCustomer cleaned) |> toFatalError
+    }
+    |> toHandler
+  )
+
+let badRequest _ = RequestErrors.BAD_REQUEST "Bad request"
 
 let app : HttpHandler =
   subRoute "/customer" (
     choose [
-      route "/register" >=> POST >=> Json.tryBind RequestErrors.BAD_REQUEST text
+      route "/register" >=> POST >=> Json.tryBind badRequest register
     ]
   )
