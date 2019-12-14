@@ -2,7 +2,7 @@ module Command
 
 open Dto
 
-let registerCustomer (input: Registration.T) =
+let registerCustomer (input: RegistrationRequest.T) =
   let cardId = Generators.randomCardId ()
   let hash   = Pbkdf2.strongHash input.Password
 

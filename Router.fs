@@ -18,8 +18,8 @@ let register input =
   warbler (fun _ ->
     result {
       let! valid
-        = Registration.validate input
-        |> map Registration.trimName
+        = RegistrationRequest.validate input
+        |> map RegistrationRequest.trimName
         |> toValidationError
 
       do! Queue.checkEmailAlreadyRegistered valid.Email

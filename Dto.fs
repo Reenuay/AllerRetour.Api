@@ -3,7 +3,7 @@ module Dto
 open ResultBuilder
 open Db
 
-module Registration =
+module RegistrationRequest =
   type T = {
     FirstName: string
     LastName: string
