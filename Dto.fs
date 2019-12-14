@@ -1,6 +1,7 @@
 module Dto
 
 open ResultBuilder
+open Validator
 open Db
 
 module RegistrationRequest =
@@ -11,36 +12,54 @@ module RegistrationRequest =
     Password: string
   }
 
+  let private passwordField = "Password"
+  let private passwordMinLength = 8
+  let private passwordMaxLength = 300
+
+  let private passwordValidator
+    = checkMinLength passwordField passwordMinLength
+    ++ checkMaxLength passwordField passwordMaxLength
+    ++ checkHasDigits passwordField
+    ++ checkHasLetters passwordField
+    ++ checkHasSymbols passwordField
+
+  let private nameMinLength = 1
+  let private nameMaxLength = 100
+
+  let private nameValidator field
+    = checkMinLength field nameMinLength
+    ++ checkMaxLength field nameMaxLength
+
   let validateEmail r =
-    match Validators.email r.Email with
+    match checkIsEmail "Email" r.Email with
     | Ok _    -> Ok r
     | Error e -> Error e
 
   let validatePassword r =
-    match Validators.password r.Password with
+    match passwordValidator r.Password with
     | Ok _    -> Ok r
     | Error e -> Error e
 
   let validateFirstName r =
-    match Validators.name r.FirstName "First name" with
+    match nameValidator "First name" r.FirstName with
     | Ok _    -> Ok r
     | Error e -> Error e
 
   let validateLastName r =
-    match Validators.name r.LastName "Last name" with
+    match nameValidator "Last name" r.LastName with
     | Ok _    -> Ok r
     | Error e -> Error e
 
-  let validate =
-    validateEmail
+  let validate
+    = validateEmail
     ++ validatePassword
     ++ validateFirstName
     ++ validateLastName
 
-  let trimName r = {
+  let cleanName r = {
     r with
-      FirstName = Validators.trimName r.FirstName
-      LastName  = Validators.trimName r.LastName
+      FirstName = Validator.cleanWhiteSpace r.FirstName
+      LastName  = Validator.cleanWhiteSpace r.LastName
   }
 
 module CustomerResponse =

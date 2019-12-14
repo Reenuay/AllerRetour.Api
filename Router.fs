@@ -19,7 +19,7 @@ let register input =
     result {
       let! valid
         = RegistrationRequest.validate input
-        |> map RegistrationRequest.trimName
+        |> map RegistrationRequest.cleanName
         |> toValidationError
 
       do! Queue.checkEmailAlreadyRegistered valid.Email
