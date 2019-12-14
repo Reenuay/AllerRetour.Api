@@ -1,10 +1,10 @@
-module ResultBuilder
+module ResultUtils
 
 type ResultBuilder () =
   member _.Bind(x, f) =
     match x with
-    | Ok    r -> f r
-    | Error r -> Error r
+    | Ok    o -> f o
+    | Error e -> Error e
   member _.Return(x) = Ok x
   member _.ReturnFrom(x) = x
 
@@ -23,7 +23,16 @@ let tryCatch f x =
   with
   | x -> Error [x.Message]
 
-let errorIfTrue x y = if y then Error x else Ok ()
+let resultIf ok error = function
+| true  -> Ok    ok
+| false -> Error error
+
+let checkIf predicate error x = resultIf x error (predicate x)
+
+let adapt f x r =
+  match x r |> f with
+  | Ok _    -> Ok r
+  | Error e -> Error e
 
 let (>>=) y x = Result.bind x y
 
@@ -36,12 +45,12 @@ type AppError =
 
 let toValidationError = function
 | Error e -> Validation e |> Error
-| Ok    s -> Ok s
+| Ok    o -> Ok o
 
 let toConflictError = function
 | Error e -> Conflict e |> Error
-| Ok    s -> Ok s
+| Ok    o -> Ok o
 
 let toFatalError = function
 | Error e -> Fatal e |> Error
-| Ok    s -> Ok s
+| Ok    o -> Ok o

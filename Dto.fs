@@ -1,10 +1,43 @@
 module Dto
 
-open ResultBuilder
+open ResultUtils
 open Validator
+open Cleaner
 open Db
 
+module DtoValidator =
+  let emailError field = [ sprintf "%s has bad email format" field ]
+  let minLengthError field l
+    = [ sprintf "%s must be at least %i characters long" field l ]
+  let maxLengthError field l
+    = [ sprintf "%s can be maximum %i characters long" field l ]
+  let restrictedWordsError field
+    = [ sprintf "%s is not allowed to contain any part of application name" field ]
+
+  module private Pass =
+    let min = 8
+    let max = 300
+    let words = ["aller"; "retour"]
+
+  module private Name =
+    let min = 1
+    let max = 100
+
+  let emailValidator field = checkIf isEmail (emailError field)
+
+  let passwordValidator field
+    =  checkIf (hasMinLengthOf Pass.min) (minLengthError field Pass.min)
+    ++ checkIf (hasMaxLengthOf Pass.max) (maxLengthError field Pass.max)
+    ++ checkIf (containsWords Pass.words >> not) (restrictedWordsError field)
+
+  let nameValidator field
+    =  checkIf (hasMinLengthOf Name.min) (minLengthError field Name.min)
+    ++ checkIf (hasMaxLengthOf Name.max) (maxLengthError field Name.max)
+
 module RegistrationRequest =
+
+  open DtoValidator
+
   type T = {
     FirstName: string
     LastName: string
@@ -12,54 +45,20 @@ module RegistrationRequest =
     Password: string
   }
 
-  let private passwordField = "Password"
-  let private passwordMinLength = 8
-  let private passwordMaxLength = 300
-
-  let private passwordValidator
-    = checkMinLength passwordField passwordMinLength
-    ++ checkMaxLength passwordField passwordMaxLength
-    ++ checkHasDigits passwordField
-    ++ checkHasLetters passwordField
-    ++ checkHasSymbols passwordField
-
-  let private nameMinLength = 1
-  let private nameMaxLength = 100
-
-  let private nameValidator field
-    = checkMinLength field nameMinLength
-    ++ checkMaxLength field nameMaxLength
-
-  let validateEmail r =
-    match checkIsEmail "Email" r.Email with
-    | Ok _    -> Ok r
-    | Error e -> Error e
-
-  let validatePassword r =
-    match passwordValidator r.Password with
-    | Ok _    -> Ok r
-    | Error e -> Error e
-
-  let validateFirstName r =
-    match nameValidator "First name" r.FirstName with
-    | Ok _    -> Ok r
-    | Error e -> Error e
-
-  let validateLastName r =
-    match nameValidator "Last name" r.LastName with
-    | Ok _    -> Ok r
-    | Error e -> Error e
-
+  let validateFirstName = adapt (nameValidator "First name") (fun r -> r.FirstName)
+  let validateLastName  = adapt (nameValidator "Last name") (fun r -> r.LastName)
+  let validateEmail     = adapt (emailValidator "Email") (fun r -> r.Email)
+  let validatePassword  = adapt (passwordValidator "Password") (fun r -> r.Password)
   let validate
-    = validateEmail
-    ++ validatePassword
-    ++ validateFirstName
+    =  validateFirstName
     ++ validateLastName
+    ++ validateEmail
+    ++ validatePassword
 
   let cleanName r = {
     r with
-      FirstName = Validator.cleanWhiteSpace r.FirstName
-      LastName  = Validator.cleanWhiteSpace r.LastName
+      FirstName = cleanWhiteSpace r.FirstName
+      LastName  = cleanWhiteSpace r.LastName
   }
 
 module CustomerResponse =

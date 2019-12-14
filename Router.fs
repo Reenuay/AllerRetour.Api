@@ -2,7 +2,7 @@ module Router
 
 open Giraffe
 open Result
-open ResultBuilder
+open ResultUtils
 open Dto
 
 let onError = function
@@ -25,7 +25,8 @@ let register input =
         |> toValidationError
 
       do! Queue.checkEmailAlreadyRegistered valid.Email
-        |> errorIfTrue (Conflict ["Email is already registered"])
+        |> not
+        |> resultIf () (Conflict ["Email is already registered"])
 
       return! (tryCatch Command.registerCustomer valid) |> toFatalError
     }
