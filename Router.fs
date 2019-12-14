@@ -12,7 +12,9 @@ let onError = function
   printfn "%A" e // TO DO: Add Logs!
   ServerErrors.INTERNAL_ERROR "Oops! Something went wrong..."
 
-let toHandler = map2 (Json.serialize >> Successful.OK) onError
+let toHandler = function
+| Ok    s -> s |> Json.serialize |> Successful.OK
+| Error r -> r |> onError
 
 let register input =
   warbler (fun _ ->

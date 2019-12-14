@@ -1,10 +1,5 @@
 module ResultBuilder
 
-type AppError =
-  | Validation of string list
-  | Conflict   of string list
-  | Fatal      of string list
-
 type ResultBuilder () =
   member _.Bind(x, f) =
     match x with
@@ -15,26 +10,29 @@ type ResultBuilder () =
 
 let result = ResultBuilder()
 
-let (>>=) y x = Result.bind x y
-
 let plus switch1 switch2 x =
-    match (switch1 x),(switch2 x) with
-    | Ok _,    Ok _     -> Ok x
-    | Error e, Ok _     -> Error e
-    | Ok _,    Error e  -> Error e
-    | Error e1,Error e2 -> Error (e1 @ e2)
-
-let (++) = plus
-
-let map2 success error = function
-| Ok    s -> success s
-| Error e -> error e
+  match (switch1 x),(switch2 x) with
+  | Ok _,    Ok _     -> Ok x
+  | Error e, Ok _     -> Error e
+  | Ok _,    Error e  -> Error e
+  | Error e1,Error e2 -> Error (e1 @ e2)
 
 let tryCatch f x =
   try
     f x |> Ok
   with
   | x -> Error [x.Message]
+
+let errorIfTrue x y = if y then Error x else Ok ()
+
+let (>>=) y x = Result.bind x y
+
+let (++) = plus
+
+type AppError =
+  | Validation of string list
+  | Conflict   of string list
+  | Fatal      of string list
 
 let toValidationError = function
 | Error e -> Validation e |> Error
@@ -47,5 +45,3 @@ let toConflictError = function
 let toFatalError = function
 | Error e -> Fatal e |> Error
 | Ok    s -> Ok s
-
-let errorIfTrue x y = if y then Error x else Ok ()
