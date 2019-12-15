@@ -15,7 +15,7 @@ let toHandler = function
 | Ok    s -> s |> Json.serialize |> Successful.OK
 | Error r -> r |> onError
 
-let register input =
+let registrationHandler input =
   warbler (fun _ ->
     result {
       let! valid
@@ -38,6 +38,6 @@ let badRequest _ = RequestErrors.BAD_REQUEST "Bad request"
 let app : HttpHandler =
   subRoute "/customer" (
     choose [
-      route "/register" >=> POST >=> Json.tryBind badRequest register
+      route "/register" >=> POST >=> Json.tryBind badRequest registrationHandler
     ]
   )
