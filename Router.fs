@@ -26,7 +26,8 @@ let register input =
 
       do! Queue.checkEmailAlreadyRegistered valid.Email
         |> not
-        |> resultIf () (Conflict ["Email is already registered"])
+        |> resultIf () ["Email is already registered"]
+        |> toConflictError
 
       return! (tryCatch Command.registerCustomer valid) |> toFatalError
     }
