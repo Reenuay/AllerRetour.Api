@@ -1,7 +1,6 @@
 module Router
 
 open Giraffe
-open Result
 open ResultUtils
 open Dto
 
@@ -21,7 +20,7 @@ let register input =
     result {
       let! valid
         = RegistrationRequest.validate input
-        |> map RegistrationRequest.cleanName
+        |> Result.map RegistrationRequest.cleanName
         |> toValidationError
 
       do! Queue.checkEmailAlreadyRegistered valid.Email

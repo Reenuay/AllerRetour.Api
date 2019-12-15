@@ -10,12 +10,12 @@ type ResultBuilder () =
 
 let result = ResultBuilder()
 
-let plus switch1 switch2 x =
+let mult onOk onError switch1 switch2 x =
   match (switch1 x),(switch2 x) with
-  | Ok _,    Ok _     -> Ok x
-  | Error e, Ok _     -> Error e
-  | Ok _,    Error e  -> Error e
-  | Error e1,Error e2 -> Error (e1 @ e2)
+  | Ok o1   , Ok o2    -> Ok (onOk o1 o2)
+  | Error e1, Ok _     -> Error e1
+  | Ok _,     Error e2 -> Error e2
+  | Error e1, Error e2 -> Error (onError e1 e2)
 
 let tryCatch f x =
   try
@@ -27,8 +27,10 @@ let resultIf ok error = function
 | true  -> Ok    ok
 | false -> Error error
 
-let checkIf predicate error x = resultIf x error (predicate x)
+// Makes predicate chainable using Result type
+let chain predicate error x = resultIf x error (predicate x)
 
+// Maps Ok case of result to another type
 let adapt f x r =
   match x r |> f with
   | Ok _    -> Ok r
@@ -36,7 +38,10 @@ let adapt f x r =
 
 let (>>=) y x = Result.bind x y
 
-let (++) = plus
+let (++) v1 v2 =
+  let ok o1 _ = o1
+  let error e1 e2 = e1 @ e2
+  mult ok error v1 v2
 
 type AppError =
   | Validation of string list

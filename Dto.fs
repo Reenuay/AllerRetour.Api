@@ -23,16 +23,16 @@ module DtoValidator =
     let min = 1
     let max = 100
 
-  let emailValidator field = checkIf isEmail (emailError field)
+  let emailValidator field = chain isEmail (emailError field)
 
   let passwordValidator field
-    =  checkIf (hasMinLengthOf Pass.min) (minLengthError field Pass.min)
-    ++ checkIf (hasMaxLengthOf Pass.max) (maxLengthError field Pass.max)
-    ++ checkIf (containsWords Pass.words >> not) (restrictedWordsError field)
+    =  chain (hasMinLengthOf Pass.min) (minLengthError field Pass.min)
+    ++ chain (hasMaxLengthOf Pass.max) (maxLengthError field Pass.max)
+    ++ chain (containsWords Pass.words >> not) (restrictedWordsError field)
 
   let nameValidator field
-    =  checkIf (hasMinLengthOf Name.min) (minLengthError field Name.min)
-    ++ checkIf (hasMaxLengthOf Name.max) (maxLengthError field Name.max)
+    =  chain (hasMinLengthOf Name.min) (minLengthError field Name.min)
+    ++ chain (hasMaxLengthOf Name.max) (maxLengthError field Name.max)
 
 module RegistrationRequest =
 
