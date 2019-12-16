@@ -6,13 +6,13 @@ open Cleaner
 open Db
 
 module DtoValidator =
-  let emailError field = [ sprintf "%s has bad email format" field ]
+  let emailError field = sprintf "%s has bad email format" field
   let minLengthError field l
-    = [ sprintf "%s must be at least %i characters long" field l ]
+    = sprintf "%s must be at least %i characters long" field l
   let maxLengthError field l
-    = [ sprintf "%s can be maximum %i characters long" field l ]
+    = sprintf "%s can be maximum %i characters long" field l
   let restrictedWordsError field
-    = [ sprintf "%s is not allowed to contain any part of application name" field ]
+    = sprintf "%s is not allowed to contain any part of application name" field
 
   module private Pass =
     let min = 8
@@ -23,16 +23,18 @@ module DtoValidator =
     let min = 1
     let max = 100
 
-  let emailValidator field = chain isEmail (emailError field)
+  let emailValidator field = chain isEmail ([emailError field])
 
-  let passwordValidator field
-    =  chain (hasMinLengthOf Pass.min) (minLengthError field Pass.min)
-    ++ chain (hasMaxLengthOf Pass.max) (maxLengthError field Pass.max)
-    ++ chain (containsWords Pass.words >> not) (restrictedWordsError field)
+  let passwordValidator field = chainList [
+    hasMinLengthOf Pass.min, minLengthError field Pass.min
+    hasMaxLengthOf Pass.max, maxLengthError field Pass.max
+    containsWords Pass.words >> not, restrictedWordsError field
+  ]
 
-  let nameValidator field
-    =  chain (hasMinLengthOf Name.min) (minLengthError field Name.min)
-    ++ chain (hasMaxLengthOf Name.max) (maxLengthError field Name.max)
+  let nameValidator field = chainList [
+    hasMinLengthOf Name.min, minLengthError field Name.min
+    hasMaxLengthOf Name.max, maxLengthError field Name.max
+  ]
 
 module RegistrationRequest =
 

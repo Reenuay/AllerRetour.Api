@@ -30,6 +30,13 @@ let resultIf ok error = function
 // Makes predicate chainable using Result type
 let chain predicate error x = resultIf x error (predicate x)
 
+let chainList predicatesAndErrors x =
+  let errors =
+    predicatesAndErrors
+    |> List.map (fun (p, e) -> if p x then [] else [e])
+    |> List.reduce (@)
+  resultIf x errors (List.isEmpty errors)
+
 // Maps Ok case of result to another type
 let adapt f x r =
   match x r |> f with
