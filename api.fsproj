@@ -14,7 +14,7 @@
     <Compile Include="Cleaner.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Dto.fs" />
-    <Compile Include="Queue.fs" />
+    <Compile Include="Query.fs" />
     <Compile Include="Command.fs" />
     <Compile Include="Router.fs" />
     <Compile Include="Program.fs" />

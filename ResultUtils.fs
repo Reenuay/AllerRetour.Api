@@ -27,21 +27,18 @@ let resultIf ok error = function
 | true  -> Ok    ok
 | false -> Error error
 
-// Makes predicate chainable using Result type
+let errorIf error = resultIf () error
+
 let chain predicate error x = resultIf x error (predicate x)
 
-let chainList predicatesAndErrors x =
-  let errors =
-    predicatesAndErrors
-    |> List.map (fun (p, e) -> if p x then [] else [e])
-    |> List.reduce (@)
-  resultIf x errors (List.isEmpty errors)
-
-// Maps Ok case of result to another type
-let adapt f x r =
-  match x r |> f with
-  | Ok _    -> Ok r
+let adapt chainablePredicate mapper x =
+  match mapper x |> chainablePredicate with
+  | Ok _    -> Ok x
   | Error e -> Error e
+
+let fromOption error = function
+| Some x -> Ok x
+| None   -> Error error
 
 let (>>=) y x = Result.bind x y
 
@@ -52,11 +49,16 @@ let (++) v1 v2 =
 
 type AppError =
   | Validation of string list
+  | NotFound   of string list
   | Conflict   of string list
   | Fatal      of string list
 
 let toValidationError = function
 | Error e -> Validation e |> Error
+| Ok    o -> Ok o
+
+let toNotFoundError = function
+| Error e -> NotFound e |> Error
 | Ok    o -> Ok o
 
 let toConflictError = function

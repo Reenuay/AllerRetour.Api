@@ -6,13 +6,13 @@ open Cleaner
 open Db
 
 module DtoValidator =
-  let emailError field = sprintf "%s has bad email format" field
+  let emailError field = [sprintf "%s has bad email format" field]
   let minLengthError field l
-    = sprintf "%s must be at least %i characters long" field l
+    = [sprintf "%s must be at least %i characters long" field l]
   let maxLengthError field l
-    = sprintf "%s can be maximum %i characters long" field l
+    = [sprintf "%s can be maximum %i characters long" field l]
   let restrictedWordsError field
-    = sprintf "%s is not allowed to contain any part of application name" field
+    = [sprintf "%s is not allowed to contain any part of application name" field]
 
   module private Pass =
     let min = 8
@@ -23,18 +23,16 @@ module DtoValidator =
     let min = 1
     let max = 100
 
-  let emailValidator field = chain isEmail ([emailError field])
+  let emailValidator field = chain isEmail (emailError field)
 
-  let passwordValidator field = chainList [
-    hasMinLengthOf Pass.min, minLengthError field Pass.min
-    hasMaxLengthOf Pass.max, maxLengthError field Pass.max
-    containsWords Pass.words >> not, restrictedWordsError field
-  ]
+  let passwordValidator field
+    =  chain (hasMinLengthOf Pass.min) (minLengthError field Pass.min)
+    ++ chain (hasMaxLengthOf Pass.max) (maxLengthError field Pass.max)
+    ++ chain (containsWords Pass.words >> not) (restrictedWordsError field)
 
-  let nameValidator field = chainList [
-    hasMinLengthOf Name.min, minLengthError field Name.min
-    hasMaxLengthOf Name.max, maxLengthError field Name.max
-  ]
+  let nameValidator field
+    =  chain (hasMinLengthOf Name.min) (minLengthError field Name.min)
+    ++ chain (hasMaxLengthOf Name.max) (maxLengthError field Name.max)
 
 module RegistrationRequest =
 
@@ -47,21 +45,28 @@ module RegistrationRequest =
     Password: string
   }
 
-  let validateFirstName = adapt (nameValidator "First name") (fun r -> r.FirstName)
-  let validateLastName  = adapt (nameValidator "Last name") (fun r -> r.LastName)
-  let validateEmail     = adapt (emailValidator "Email") (fun r -> r.Email)
-  let validatePassword  = adapt (passwordValidator "Password") (fun r -> r.Password)
   let validate
-    =  validateFirstName
-    ++ validateLastName
-    ++ validateEmail
-    ++ validatePassword
+    =  adapt (nameValidator "First name") (fun r -> r.FirstName)
+    ++ adapt (nameValidator "Last name") (fun r -> r.LastName)
+    ++ adapt (emailValidator "Email") (fun r -> r.Email)
+    ++ adapt (passwordValidator "Password") (fun r -> r.Password)
 
   let cleanName r = {
     r with
       FirstName = cleanWhiteSpace r.FirstName
       LastName  = cleanWhiteSpace r.LastName
   }
+
+module AuthenticationRequest =
+
+  open DtoValidator
+  type T = {
+    Email: string
+    Password: string
+  }
+
+  let validate
+    = adapt (emailValidator "Email") (fun r -> r.Email)
 
 module CustomerResponse =
   type T = {
@@ -82,3 +87,10 @@ module CustomerResponse =
       Email = c.Email
       CardId = c.CardId
     }
+
+module Customer =
+  type T = {
+    Id: int64
+    Email: string
+    PasswordHash: string
+  }
