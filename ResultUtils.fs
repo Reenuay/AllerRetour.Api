@@ -27,7 +27,7 @@ let resultIf ok error = function
 | true  -> Ok    ok
 | false -> Error error
 
-let errorIf error = resultIf () error
+let falseTo error = resultIf () error
 
 let chain predicate error x = resultIf x error (predicate x)
 
