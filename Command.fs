@@ -20,4 +20,4 @@ let registerCustomer (input: RegistrationRequest.T) =
 
   Db.submit ()
 
-  CustomerResponse.fromDb customer profile
+  customer.Id

@@ -1,11 +1,10 @@
-module Dto
+module Input
 
 open ResultUtils
-open Validator
-open Cleaner
-open Db
+open Validators
+open Cleaners
 
-module DtoValidator =
+module private GenericValidators =
   let emailError field = [sprintf "%s has bad email format" field]
   let minLengthError field l
     = [sprintf "%s must be at least %i characters long" field l]
@@ -36,13 +35,19 @@ module DtoValidator =
 
 module RegistrationRequest =
 
-  open DtoValidator
+  open GenericValidators
 
   type T = {
     FirstName: string
     LastName: string
     Email: string
     Password: string
+  }
+
+  let private cleanName r = {
+    r with
+      FirstName = cleanWhiteSpace r.FirstName
+      LastName  = cleanWhiteSpace r.LastName
   }
 
   let validate
@@ -50,16 +55,12 @@ module RegistrationRequest =
     ++ adapt (nameValidator "Last name") (fun r -> r.LastName)
     ++ adapt (emailValidator "Email") (fun r -> r.Email)
     ++ adapt (passwordValidator "Password") (fun r -> r.Password)
-
-  let cleanName r = {
-    r with
-      FirstName = cleanWhiteSpace r.FirstName
-      LastName  = cleanWhiteSpace r.LastName
-  }
+    ++ switch cleanName
 
 module AuthenticationRequest =
 
-  open DtoValidator
+  open GenericValidators
+
   type T = {
     Email: string
     Password: string
@@ -67,30 +68,3 @@ module AuthenticationRequest =
 
   let validate
     = adapt (emailValidator "Email") (fun r -> r.Email)
-
-module CustomerResponse =
-  type T = {
-    Id: int64
-    FirstName: string
-    LastName: string
-    Email: string
-    CardId: string
-  }
-
-  let fromDb
-    (c: AllerRetourSchema.dataContext.``public.customersEntity``)
-    (p: AllerRetourSchema.dataContext.``public.customer_profilesEntity``) =
-    {
-      Id = c.Id
-      FirstName = p.FirstName
-      LastName = p.LastName
-      Email = c.Email
-      CardId = c.CardId
-    }
-
-module Customer =
-  type T = {
-    Id: int64
-    Email: string
-    PasswordHash: string
-  }

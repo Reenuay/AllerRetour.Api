@@ -2,7 +2,7 @@ module Router
 
 open Giraffe
 open ResultUtils
-open Dto
+open Input
 
 let jsonWithCode code x = setStatusCode code >=> text (Json.serialize x)
 
@@ -14,39 +14,38 @@ let onError = function
   printfn "%A" e // TO DO: Add Logs!
   jsonWithCode 500 "Oops! Something went wrong..."
 
-let toHandler = function
+let resultToHandler = function
 | Ok    o -> jsonWithCode 200 o
 | Error e -> onError e
 
-let fromSwitch f input = warbler (fun _ -> f input |> toHandler)
+let fromSwitch validator switch input =
+  warbler (
+    fun _ ->
+      match validator input with
+      | Ok o    -> switch o
+      | Error e -> Error e |> toValidationError
+      |> resultToHandler
+  )
 
 let registrationHandler =
-  fromSwitch (
+  fromSwitch RegistrationRequest.validate (
     fun input -> result {
-      let! valid
-        =  RegistrationRequest.validate input
-        |> Result.map RegistrationRequest.cleanName
-        |> toValidationError
 
-      do!  Query.checkEmailAlreadyRegistered valid.Email
-        |> not
+      do!  Query.customerByEmail input.Email
+        |> Seq.tryExactlyOne = None
         |> falseTo ["Email is already registered"]
         |> toConflictError
 
-      return! (tryCatch Command.registerCustomer valid) |> toFatalError
+      return! (tryCatch Command.registerCustomer input) |> toFatalError
     }
   )
 
 let authenticationHandler =
-  fromSwitch (
+  fromSwitch AuthenticationRequest.validate (
     fun input ->
       result {
-        let! valid
-          =  AuthenticationRequest.validate input
-          |> toValidationError
-
         let! customer
-          =  Query.customerByEmail valid.Email
+          =  Query.customerByEmail input.Email
           |> Seq.tryExactlyOne
           |> fromOption ["User with that email is not found"]
           |> toNotFoundError
@@ -65,8 +64,8 @@ let inline jsonBind (handler : ^T -> HttpHandler) = Json.tryBind badRequest hand
 
 let app : HttpHandler =
   subRoute "/customer" (
-    choose [
-      route "/register" >=> POST >=> jsonBind registrationHandler
-      route "/auth" >=> POST >=> jsonBind authenticationHandler
+    POST >=> choose [
+      route "/register" >=> jsonBind registrationHandler
+      route "/auth"     >=> jsonBind authenticationHandler
     ]
   )

@@ -1,7 +1,6 @@
 module Query
 
 open Db
-open Dto.Customer
 
 let customerByEmail email =
   query {
@@ -13,5 +12,3 @@ let customerByEmail email =
       PasswordHash = c.PasswordHash
     })
   }
-
-let checkEmailAlreadyRegistered email = (customerByEmail email |> Seq.tryExactlyOne) <> None

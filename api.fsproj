@@ -10,10 +10,10 @@
     <Compile Include="PBKDF2.fs" />
     <Compile Include="Generators.fs" />
     <Compile Include="ResultUtils.fs" />
-    <Compile Include="Validator.fs" />
-    <Compile Include="Cleaner.fs" />
+    <Compile Include="Validators.fs" />
+    <Compile Include="Cleaners.fs" />
     <Compile Include="Db.fs" />
-    <Compile Include="Dto.fs" />
+    <Compile Include="Input.fs" />
     <Compile Include="Query.fs" />
     <Compile Include="Command.fs" />
     <Compile Include="Router.fs" />

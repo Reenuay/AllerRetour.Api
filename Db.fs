@@ -19,3 +19,9 @@ let ctx = AllerRetourSchema.GetDataContext ()
 let submit = ctx.SubmitUpdates
 let customers = ctx.Public.Customers
 let customerProfiles = ctx.Public.CustomerProfiles
+
+type Customer = {
+  Id: int64
+  Email: string
+  PasswordHash: string
+}

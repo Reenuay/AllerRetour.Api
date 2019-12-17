@@ -1,4 +1,4 @@
-module Validator
+module Validators
 
 open System.Text.RegularExpressions
 

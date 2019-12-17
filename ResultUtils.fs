@@ -10,6 +10,8 @@ type ResultBuilder () =
 
 let result = ResultBuilder()
 
+let switch f x = f x |> Ok
+
 let mult onOk onError switch1 switch2 x =
   match (switch1 x),(switch2 x) with
   | Ok o1   , Ok o2    -> Ok (onOk o1 o2)
@@ -53,18 +55,12 @@ type AppError =
   | Conflict   of string list
   | Fatal      of string list
 
-let toValidationError = function
-| Error e -> Validation e |> Error
-| Ok    o -> Ok o
+let toAppError (error: string list -> AppError) x =
+  match x with
+  | Ok o -> Ok o
+  | Error e -> error e |> Error
 
-let toNotFoundError = function
-| Error e -> NotFound e |> Error
-| Ok    o -> Ok o
-
-let toConflictError = function
-| Error e -> Conflict e |> Error
-| Ok    o -> Ok o
-
-let toFatalError = function
-| Error e -> Fatal e |> Error
-| Ok    o -> Ok o
+let toValidationError x = toAppError Validation x
+let toNotFoundError x = toAppError NotFound x
+let toConflictError x = toAppError Conflict x
+let toFatalError x = toAppError Fatal x
