@@ -1,6 +1,6 @@
 module Command
 
-open Dto
+open Input
 
 let registerCustomer (input: RegistrationRequest.T) =
   let cardId = Generators.randomCardId ()
