@@ -44,10 +44,10 @@ let fromOption error = function
 
 let (>>=) y x = Result.bind x y
 
-let (++) v1 v2 =
-  let ok o1 _ = o1
+let (++) v1 v2 x =
+  let ok _ _ = x
   let error e1 e2 = e1 @ e2
-  mult ok error v1 v2
+  mult ok error v1 v2 x
 
 type AppError =
   | Validation of string list
