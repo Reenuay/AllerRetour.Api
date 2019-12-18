@@ -15,70 +15,72 @@ type AppSettings = {
 
 let jsonWithCode code x = setStatusCode code >=> text (Json.serialize x)
 
+let authorize : HttpHandler =
+  requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
+
 let onError = function
 | Validation e -> jsonWithCode 400 e
 | NotFound   e -> jsonWithCode 404 e
 | Conflict   e -> jsonWithCode 409 e
 | Fatal      e ->
   printfn "%A" e // TO DO: Add Logs!
-  jsonWithCode 500 "Oops! Something went wrong..."
+  jsonWithCode 500 ["Oops! Something went wrong..."]
 
 let resultToHandler = function
 | Ok    o -> jsonWithCode 200 o
 | Error e -> onError e
 
-let fromSwitch validator switch input =
+let badRequest _ = jsonWithCode 400 ["Bad request"]
+
+let inline jsonBind (handler : ^T -> HttpHandler) = Json.tryBind badRequest handler
+
+let createHandler validator switch input =
   warbler (
     fun _ ->
-      match validator input with
-      | Ok o    -> switch o
-      | Error e -> Error e |> toValidationError
+      try
+        match validator input with
+        | Ok o    -> switch o
+        | Error e -> Error e |> toValidationError
+      with
+      | ex -> Fatal [ex.Message] |> Error
       |> resultToHandler
   )
 
-let authorize : HttpHandler =
-  requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
+let tryRegister (input: RegistrationRequest.T) =
+  result {
+    do!  Query.customerByEmail input.Email
+      |> Seq.tryExactlyOne = None
+      |> falseTo ["Email is already registered"]
+      |> toConflictError
 
-let registrationHandler =
-  fromSwitch RegistrationRequest.validate (
-    fun input -> result {
+    return Command.registerCustomer input
+  }
 
-      do!  Query.customerByEmail input.Email
-        |> Seq.tryExactlyOne = None
-        |> falseTo ["Email is already registered"]
-        |> toConflictError
+let tryAuthenticate generateToken (input: AuthenticationRequest.T) =
+  result {
+    let! customer
+      =  Query.customerByEmail input.Email
+      |> Seq.tryExactlyOne
+      |> fromOption ["User with that email is not found"]
+      |> toNotFoundError
 
-      return! (tryCatch Command.registerCustomer input) |> toFatalError
-    }
-  )
+    do!  Pbkdf2.verify customer.PasswordHash input.Password
+      |> falseTo ["Invalid password"]
+      |> toValidationError
+
+    return generateToken customer
+  }
+
+let registrationHandler = createHandler RegistrationRequest.validate tryRegister
 
 let createAuthenticationHandler generateToken =
-  fromSwitch AuthenticationRequest.validate (
-    fun input ->
-      result {
-        let! customer
-          =  Query.customerByEmail input.Email
-          |> Seq.tryExactlyOne
-          |> fromOption ["User with that email is not found"]
-          |> toNotFoundError
-
-        do!  Pbkdf2.verify customer.PasswordHash input.Password
-          |> falseTo ["Invalid password"]
-          |> toValidationError
-
-        return generateToken customer
-      }
-  )
+  createHandler AuthenticationRequest.validate (tryAuthenticate generateToken)
 
 let handleGetSecured =
   fun (next : HttpFunc) (ctx : HttpContext) ->
-    let email = ctx.User.FindFirst customerIdClaim
+    let id = ctx.User.FindFirst customerIdClaim
 
-    text ("User " + email.Value + " is authorized to access this resource.") next ctx
-
-let badRequest _ = RequestErrors.BAD_REQUEST "Bad request"
-
-let inline jsonBind (handler : ^T -> HttpHandler) = Json.tryBind badRequest handler
+    text ("User " + id.Value + " is authorized to access this resource.") next ctx
 
 let createApp (settings) : HttpHandler =
   let authenticationHandler = createAuthenticationHandler (generateToken settings.Auth)
