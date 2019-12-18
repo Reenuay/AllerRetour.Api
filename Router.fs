@@ -1,8 +1,17 @@
 module Router
 
+open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Authentication.JwtBearer
+
 open Giraffe
-open ResultUtils
+
+open Auth
 open Input
+open ResultUtils
+
+type AppSettings = {
+  Auth: AuthSettings
+}
 
 let jsonWithCode code x = setStatusCode code >=> text (Json.serialize x)
 
@@ -27,6 +36,9 @@ let fromSwitch validator switch input =
       |> resultToHandler
   )
 
+let authorize : HttpHandler =
+  requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
+
 let registrationHandler =
   fromSwitch RegistrationRequest.validate (
     fun input -> result {
@@ -40,7 +52,7 @@ let registrationHandler =
     }
   )
 
-let authenticationHandler =
+let createAuthenticationHandler generateToken =
   fromSwitch AuthenticationRequest.validate (
     fun input ->
       result {
@@ -54,18 +66,27 @@ let authenticationHandler =
           |> falseTo ["Invalid password"]
           |> toValidationError
 
-        return "Heysan"
+        return generateToken customer
       }
   )
+
+let handleGetSecured =
+  fun (next : HttpFunc) (ctx : HttpContext) ->
+    let email = ctx.User.FindFirst customerIdClaim
+
+    text ("User " + email.Value + " is authorized to access this resource.") next ctx
 
 let badRequest _ = RequestErrors.BAD_REQUEST "Bad request"
 
 let inline jsonBind (handler : ^T -> HttpHandler) = Json.tryBind badRequest handler
 
-let app : HttpHandler =
+let createApp (settings) : HttpHandler =
+  let authenticationHandler = createAuthenticationHandler (generateToken settings.Auth)
+
   subRoute "/customer" (
     POST >=> choose [
       route "/register" >=> jsonBind registrationHandler
       route "/auth"     >=> jsonBind authenticationHandler
+      route "/test"     >=> authorize >=> handleGetSecured
     ]
   )

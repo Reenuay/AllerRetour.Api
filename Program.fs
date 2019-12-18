@@ -1,11 +1,21 @@
-open Giraffe
-open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Hosting
-open Microsoft.Extensions.Configuration
-open Microsoft.Extensions.Hosting
-open Serilog
 open System
 open System.IO
+open System.Text
+open Microsoft.AspNetCore.Builder
+open Microsoft.Extensions.Hosting
+open Microsoft.AspNetCore.Hosting
+open Microsoft.IdentityModel.Tokens
+open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.DependencyInjection
+open Microsoft.AspNetCore.Authentication.JwtBearer
+
+open Serilog
+open Giraffe
+
+open Router
+
+// TO DO: Refactor all this staff!!
+let secret = "I'm just a stub! Put me into a config file!"
 
 let setHostConfig (basePath : string) (args : string array) (hostBuilder : IHostBuilder) =
   hostBuilder
@@ -51,6 +61,22 @@ let setGiraffeAppConfig (giraffeApp : HttpHandler ) (hostBuilder : IHostBuilder)
           .ConfigureServices(
             fun services ->
               services.AddGiraffe() |> ignore
+
+              let tokenParams = TokenValidationParameters()
+              tokenParams.ValidateIssuer <- true
+              tokenParams.ValidateAudience <- true
+              tokenParams.ValidateLifetime <- true
+              tokenParams.ValidateIssuerSigningKey <- true
+              tokenParams.ValidIssuer <- "aller-retour.com"
+              tokenParams.ValidAudience <- "aller-retour.com"
+              tokenParams.IssuerSigningKey <- SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret))
+
+              services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(fun options ->
+                  options.TokenValidationParameters <- tokenParams
+                )
+                |> ignore
           )
           .Configure(
             fun context app ->
@@ -61,7 +87,9 @@ let setGiraffeAppConfig (giraffeApp : HttpHandler ) (hostBuilder : IHostBuilder)
               | _             -> app
               |> ignore
 
-              app.UseGiraffe giraffeApp
+              app
+                .UseAuthentication()
+                .UseGiraffe giraffeApp
           )
           |> ignore
     )
@@ -87,10 +115,18 @@ let main args =
       )
       .CreateLogger()
 
+  let appSettings = {
+    Auth = {
+      Secret = secret
+      Issuer = "aller-retour.com"
+      Audience = "aller-retour.com"
+    }
+  }
+
   HostBuilder()
   |> setHostConfig basePath args
   |> setAppConfig
-  |> setGiraffeAppConfig Router.app
+  |> setGiraffeAppConfig (createApp appSettings)
   |> buildHost
   |> run
 
