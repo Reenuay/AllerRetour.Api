@@ -35,6 +35,7 @@ module private GenericValidators =
 
 module RegistrationRequest =
 
+  open Result
   open GenericValidators
 
   type T = {
@@ -55,7 +56,7 @@ module RegistrationRequest =
     ++ adapt (nameValidator "Last name") (fun r -> r.LastName)
     ++ adapt (emailValidator "Email") (fun r -> r.Email)
     ++ adapt (passwordValidator "Password") (fun r -> r.Password)
-    ++ switch cleanName
+    >> map cleanName
 
 module AuthenticationRequest =
 
