@@ -76,7 +76,7 @@ let tryAuthenticate settings (input: AuthenticationRequest.T) =
 
 let registrationHandler = createHandler RegistrationRequest.validate tryRegister
 
-let createAuthenticationHandler generateToken =
+let authenticationHandler generateToken =
   createHandler AuthenticationRequest.validate (tryAuthenticate generateToken)
 
 let handleGetSecured =
@@ -86,12 +86,10 @@ let handleGetSecured =
     text ("User " + id.Value + " is authorized to access this resource.") next ctx
 
 let createApp (settings) : HttpHandler =
-  let authenticationHandler = createAuthenticationHandler settings.Auth
-
   subRoute "/customer" (
     POST >=> choose [
       route "/register" >=> jsonBind registrationHandler
-      route "/auth"     >=> jsonBind authenticationHandler
+      route "/auth"     >=> jsonBind (authenticationHandler settings.Auth)
       route "/test"     >=> authorize >=> handleGetSecured
     ]
   )
