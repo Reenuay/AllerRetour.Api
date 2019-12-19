@@ -12,122 +12,85 @@ open Microsoft.AspNetCore.Authentication.JwtBearer
 open Serilog
 open Giraffe
 
+open Auth
 open Router
 
-// TO DO: Refactor all this staff!!
-let secret = "I'm just a stub! Put me into a config file!"
-
-let setHostConfig (basePath : string) (args : string array) (hostBuilder : IHostBuilder) =
-  hostBuilder
-    .UseContentRoot(basePath)
-    .UseSerilog()
-    .ConfigureHostConfiguration(
-      fun builder ->
-        builder
-          .SetBasePath(basePath)
-          .AddYamlFile("hostsettings.yml")
-          .AddEnvironmentVariables("DOTNET_")
-          .AddCommandLine(args)
-          |> ignore
-    )
-
-let setAppConfig (hostBuilder : IHostBuilder) =
-  hostBuilder
-    .ConfigureAppConfiguration(
-      fun context builder ->
-        let env = context.HostingEnvironment.EnvironmentName
-        let rootPath = context.HostingEnvironment.ContentRootPath
-
-        builder
-          .SetBasePath(rootPath)
-          .AddYamlFile("appsettings.yml")
-          .AddYamlFile(sprintf "appsettings.%s.yml" env, true)
-          .AddEnvironmentVariables("ASPNETCORE_")
-          |> ignore
-    )
-
-let setGiraffeAppConfig (giraffeApp : HttpHandler ) (hostBuilder : IHostBuilder) =
-  hostBuilder
-    .ConfigureWebHost(
-      fun webBuilder ->
-        webBuilder
-          .UseKestrel(
-            fun context options ->
-              options.Configure(
-                context.Configuration.GetSection("Kestrel")
-              )
-              |> ignore
-          )
-          .ConfigureServices(
-            fun services ->
-              services.AddGiraffe() |> ignore
-
-              let tokenParams = TokenValidationParameters()
-              tokenParams.ValidateIssuer <- true
-              tokenParams.ValidateAudience <- true
-              tokenParams.ValidateLifetime <- true
-              tokenParams.ValidateIssuerSigningKey <- true
-              tokenParams.ValidIssuer <- "aller-retour.com"
-              tokenParams.ValidAudience <- "aller-retour.com"
-              tokenParams.IssuerSigningKey <- SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret))
-
-              services
-                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(fun options ->
-                  options.TokenValidationParameters <- tokenParams
-                )
-                |> ignore
-          )
-          .Configure(
-            fun context app ->
-              let env = context.HostingEnvironment.EnvironmentName
-
-              match env with
-              | "Development" -> app.UseDeveloperExceptionPage()
-              | _             -> app
-              |> ignore
-
-              app
-                .UseAuthentication()
-                .UseGiraffe giraffeApp
-          )
-          |> ignore
-    )
-
-let buildHost (hostBuilder : IHostBuilder) = hostBuilder.Build()
-
-let run (host : IHost) = host.Run()
+let createTokenParams settings =
+  let tokenParams = TokenValidationParameters()
+  tokenParams.ValidateIssuer <- true
+  tokenParams.ValidateAudience <- true
+  tokenParams.ValidateLifetime <- true
+  tokenParams.ValidateIssuerSigningKey <- true
+  tokenParams.ValidIssuer <- settings.Issuer
+  tokenParams.ValidAudience <- settings.Audience
+  tokenParams.IssuerSigningKey <- SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.Secret))
+  tokenParams
 
 [<EntryPoint>]
-let main args =
+let main _ =
   let basePath = Directory.GetCurrentDirectory()
 
-  Log.Logger <-
+  let config =
+    ConfigurationBuilder()
+      .SetBasePath(basePath)
+      .AddYamlFile("appsettings.yml")
+      .AddYamlFile("appsettings.optional.yml", true)
+      .Build()
+
+  let appSettings = {
+    Auth = {
+      Secret = config.["Auth:Secret"]
+      Issuer = config.["Auth:Issuer"]
+      Audience = config.["Auth:Audience"]
+    }
+  }
+
+  let logger =
     LoggerConfiguration()
       .Enrich.FromLogContext()
       .WriteTo.Console()
       .WriteTo.File(
-        "/var/log/aller_retour/api.log",
-        fileSizeLimitBytes = Nullable(1000000L),
-        rollOnFileSizeLimit = true,
+        config.["Logger:Path"],
         shared =  true,
+        rollOnFileSizeLimit = true,
+        fileSizeLimitBytes = Nullable(1000000L),
         flushToDiskInterval = Nullable(TimeSpan.FromSeconds(1.0))
       )
       .CreateLogger()
 
-  let appSettings = {
-    Auth = {
-      Secret = secret
-      Issuer = "aller-retour.com"
-      Audience = "aller-retour.com"
-    }
-  }
+  Log.Logger <- logger
 
   HostBuilder()
-  |> setHostConfig basePath args
-  |> setAppConfig
-  |> setGiraffeAppConfig (createApp appSettings)
-  |> buildHost
-  |> run
+    .UseContentRoot(basePath)
+    .UseSerilog()
+    .ConfigureServices(fun _ services ->
+      services
+        .AddGiraffe()
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(fun options ->
+          options.TokenValidationParameters <- createTokenParams appSettings.Auth
+        )
+        |> ignore
+    )
+    .ConfigureWebHost(
+      fun webBuilder ->
+        webBuilder
+          .UseKestrel()
+          .Configure(
+            fun context appBuilder ->
+              let env = context.HostingEnvironment.EnvironmentName
+
+              (
+                match env with
+                | "Development" -> appBuilder.UseDeveloperExceptionPage()
+                | _             -> appBuilder
+              )
+                .UseAuthentication()
+                .UseGiraffe (createApp appSettings)
+          )
+          |> ignore
+    )
+    .Build()
+    .Run()
 
   0 // exit code

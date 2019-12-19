@@ -1,0 +1,6 @@
+Logger:
+  Path: "/var/log/aller_retour/api.log"
+Auth:
+  Secret: ""
+  Issuer: "aller-retour.com"
+  Audience: "aller-retour.com"
