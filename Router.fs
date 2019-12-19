@@ -59,7 +59,7 @@ let tryRegister (input: RegistrationRequest.T) =
     return Command.registerCustomer input
   }
 
-let tryAuthenticate generateToken (input: AuthenticationRequest.T) =
+let tryAuthenticate settings (input: AuthenticationRequest.T) =
   result {
     let! customer
       =  Query.customerByEmail input.Email
@@ -71,7 +71,7 @@ let tryAuthenticate generateToken (input: AuthenticationRequest.T) =
       |> falseTo ["Invalid password"]
       |> toValidationError
 
-    return generateToken customer
+    return generateToken settings customer
   }
 
 let registrationHandler = createHandler RegistrationRequest.validate tryRegister
@@ -86,7 +86,7 @@ let handleGetSecured =
     text ("User " + id.Value + " is authorized to access this resource.") next ctx
 
 let createApp (settings) : HttpHandler =
-  let authenticationHandler = createAuthenticationHandler (generateToken settings.Auth)
+  let authenticationHandler = createAuthenticationHandler settings.Auth
 
   subRoute "/customer" (
     POST >=> choose [
