@@ -50,17 +50,17 @@ let (++) v1 v2 x =
   mult ok error v1 v2 x
 
 type AppError =
-  | Validation of string list
-  | NotFound   of string list
-  | Conflict   of string list
-  | Fatal      of string list
+  | ValidationError of string list
+  | NotFoundError   of string list
+  | ConflictError   of string list
+  | FatalError      of string list
 
 let toAppError (error: string list -> AppError) x =
   match x with
   | Ok o -> Ok o
   | Error e -> error e |> Error
 
-let toValidationError x = toAppError Validation x
-let toNotFoundError x = toAppError NotFound x
-let toConflictError x = toAppError Conflict x
-let toFatalError x = toAppError Fatal x
+let toValidationError x = toAppError ValidationError x
+let toNotFoundError x = toAppError NotFoundError x
+let toConflictError x = toAppError ConflictError x
+let toFatalError x = toAppError FatalError x

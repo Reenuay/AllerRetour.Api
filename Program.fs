@@ -37,21 +37,13 @@ let main _ =
       .AddYamlFile("appsettings.optional.yml", true)
       .Build()
 
-  let appSettings = {
-    Auth = {
-      Secret = config.["Auth:Secret"]
-      Issuer = config.["Auth:Issuer"]
-      Audience = config.["Auth:Audience"]
-    }
-  }
-
   let logger =
     LoggerConfiguration()
       .Enrich.FromLogContext()
       .WriteTo.Console()
       .WriteTo.File(
         config.["Logger:Path"],
-        shared =  true,
+        shared = true,
         rollOnFileSizeLimit = true,
         fileSizeLimitBytes = Nullable(1000000L),
         flushToDiskInterval = Nullable(TimeSpan.FromSeconds(1.0))
@@ -59,6 +51,24 @@ let main _ =
       .CreateLogger()
 
   Log.Logger <- logger
+
+  let log = function
+  | VerboseLevel -> logger.Verbose
+  | DebugLevel   -> logger.Debug
+  | InfoLevel    -> logger.Information
+  | WarningLevel -> logger.Warning
+  | ErrorLevel   -> logger.Error
+  | FatalLevel   -> logger.Fatal
+
+  let appSettings = {
+    Auth = {
+      Secret = config.["Auth:Secret"]
+      Issuer = config.["Auth:Issuer"]
+      Audience = config.["Auth:Audience"]
+    }
+
+    Log = log
+  }
 
   HostBuilder()
     .UseContentRoot(basePath)
@@ -77,8 +87,8 @@ let main _ =
         webBuilder
           .UseKestrel()
           .Configure(
-            fun context appBuilder ->
-              let env = context.HostingEnvironment.EnvironmentName
+            fun ctx appBuilder ->
+              let env = ctx.HostingEnvironment.EnvironmentName
 
               (
                 match env with
