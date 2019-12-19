@@ -52,22 +52,12 @@ let main _ =
 
   Log.Logger <- logger
 
-  let log = function
-  | VerboseLevel -> logger.Verbose
-  | DebugLevel   -> logger.Debug
-  | InfoLevel    -> logger.Information
-  | WarningLevel -> logger.Warning
-  | ErrorLevel   -> logger.Error
-  | FatalLevel   -> logger.Fatal
-
   let appSettings = {
     Auth = {
       Secret = config.["Auth:Secret"]
       Issuer = config.["Auth:Issuer"]
       Audience = config.["Auth:Audience"]
     }
-
-    Log = log
   }
 
   HostBuilder()
