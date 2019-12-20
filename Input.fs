@@ -13,16 +13,21 @@ module private GenericValidators =
   let restrictedWordsError field
     = [sprintf "%s is not allowed to contain any part of application name" field]
 
+  module private Email =
+    let max = 100
+
   module private Pass =
     let min = 8
-    let max = 300
+    let max = 100
     let words = ["aller"; "retour"]
 
   module private Name =
     let min = 1
     let max = 100
 
-  let emailValidator field = chain isEmail (emailError field)
+  let emailValidator field
+    =  chain isEmail (emailError field)
+    ++ chain (hasMaxLengthOf Email.max) (maxLengthError field Email.max)
 
   let passwordValidator field
     =  chain (hasMinLengthOf Pass.min) (minLengthError field Pass.min)
@@ -68,4 +73,5 @@ module AuthenticationRequest =
   }
 
   let validate
-    = adapt (emailValidator "Email") (fun r -> r.Email)
+    =  adapt (emailValidator "Email") (fun a -> a.Email)
+    ++ adapt (passwordValidator "Password") (fun a -> a.Password)
