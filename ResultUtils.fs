@@ -49,18 +49,24 @@ let (++) v1 v2 x =
   let error e1 e2 = e1 @ e2
   mult ok error v1 v2 x
 
-type AppError =
-  | ValidationError of string list
-  | NotFoundError   of string list
-  | ConflictError   of string list
-  | FatalError      of string list
+type AppErrorCase =
+  | ValidationError
+  | NotFoundError
+  | ConflictError
+  | FatalError
 
-let toAppError (error: string list -> AppError) x =
+type AppError = AppError of AppErrorCase * string list
+
+let listToAppError error x = AppError(error, x) |> Error
+
+let toAppError (error : AppErrorCase) x =
   match x with
   | Ok o -> Ok o
-  | Error e -> error e |> Error
+  | Error e -> AppError (error, e) |> Error
 
 let toValidationError x = toAppError ValidationError x
 let toNotFoundError x = toAppError NotFoundError x
 let toConflictError x = toAppError ConflictError x
 let toFatalError x = toAppError FatalError x
+
+let toList (AppError (_, l)) = l
