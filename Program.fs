@@ -12,18 +12,19 @@ open Microsoft.AspNetCore.Authentication.JwtBearer
 open Serilog
 open Giraffe
 
-open Auth
 open Router
 
-let createTokenParams settings =
+let createTokenParams () =
   let tokenParams = TokenValidationParameters()
   tokenParams.ValidateIssuer <- true
   tokenParams.ValidateAudience <- true
   tokenParams.ValidateLifetime <- true
   tokenParams.ValidateIssuerSigningKey <- true
-  tokenParams.ValidIssuer <- settings.Issuer
-  tokenParams.ValidAudience <- settings.Audience
-  tokenParams.IssuerSigningKey <- SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.Secret))
+  tokenParams.ValidIssuer <- Auth.Settings.Issuer
+  tokenParams.ValidAudience <- Auth.Settings.Audience
+  tokenParams.IssuerSigningKey <- SymmetricSecurityKey(
+    Encoding.UTF8.GetBytes(Auth.Settings.Secret)
+  )
   tokenParams
 
 [<EntryPoint>]
@@ -36,6 +37,13 @@ let main _ =
       .AddYamlFile("appsettings.yml")
       .AddYamlFile("appsettings.optional.yml", true)
       .Build()
+
+  Auth.Settings.Secret   <- config.["Auth:Secret"]
+  Auth.Settings.Issuer   <- config.["Auth:Issuer"]
+  Auth.Settings.Audience <- config.["Auth:Audience"]
+
+  Mail.Settings.Host    <- config.["Mail:Host"]
+  Mail.Settings.Address <- config.["Mail:Address"]
 
   let logger =
     LoggerConfiguration()
@@ -52,14 +60,6 @@ let main _ =
 
   Log.Logger <- logger
 
-  let appSettings = {
-    Auth = {
-      Secret = config.["Auth:Secret"]
-      Issuer = config.["Auth:Issuer"]
-      Audience = config.["Auth:Audience"]
-    }
-  }
-
   HostBuilder()
     .UseContentRoot(basePath)
     .UseSerilog()
@@ -68,7 +68,7 @@ let main _ =
         .AddGiraffe()
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(fun options ->
-          options.TokenValidationParameters <- createTokenParams appSettings.Auth
+          options.TokenValidationParameters <- createTokenParams()
         )
         |> ignore
     )
@@ -86,7 +86,7 @@ let main _ =
                 | _             -> appBuilder
               )
                 .UseAuthentication()
-                .UseGiraffe (createApp appSettings)
+                .UseGiraffe (createApp())
           )
           |> ignore
     )

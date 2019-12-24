@@ -8,11 +8,11 @@ open Microsoft.IdentityModel.Tokens
 
 open Db
 
-type AuthSettings = {
-  Secret: string
-  Issuer: string
-  Audience: string
-}
+[<AbstractClass; Sealed>]
+type Settings private () =
+  static member val Secret = "" with get, set
+  static member val Issuer = "" with get, set
+  static member val Audience = "" with get, set
 
 type TokenResult = {
   Token : string
@@ -20,7 +20,7 @@ type TokenResult = {
 
 let customerIdClaim = "customerId"
 
-let generateToken settings customer =
+let generateToken customer =
   let claims = [|
     Claim(customerIdClaim, customer.Id.ToString())
     Claim(JwtRegisteredClaimNames.Sub, customer.Email)
@@ -29,7 +29,7 @@ let generateToken settings customer =
 
   let expires = Nullable(DateTime.UtcNow.AddMinutes(15.0))
   let notBefore = Nullable(DateTime.UtcNow)
-  let securityKey = SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.Secret))
+  let securityKey = SymmetricSecurityKey(Encoding.UTF8.GetBytes(Settings.Secret))
   let signingCredentials =
     SigningCredentials(
       key = securityKey,
@@ -38,8 +38,8 @@ let generateToken settings customer =
 
   let token =
     JwtSecurityToken(
-      issuer = settings.Issuer,
-      audience = settings.Audience,
+      issuer = Settings.Issuer,
+      audience = Settings.Audience,
       claims = claims,
       expires = expires,
       notBefore = notBefore,

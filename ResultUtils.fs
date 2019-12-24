@@ -25,6 +25,11 @@ let tryCatch f x =
   with
   | x -> Error [x.Message]
 
+let side onOk onError x =
+  match x with
+  | Ok o    -> onOk o    |> ignore; Ok o
+  | Error e -> onError e |> ignore; Error e
+
 let resultIf ok error = function
 | true  -> Ok    ok
 | false -> Error error
@@ -51,6 +56,7 @@ let (++) v1 v2 x =
 
 type AppErrorCase =
   | ValidationError
+  | Unauthorized
   | NotFoundError
   | ConflictError
   | FatalError
@@ -65,6 +71,7 @@ let toAppError (error : AppErrorCase) x =
   | Error e -> AppError (error, e) |> Error
 
 let toValidationError x = toAppError ValidationError x
+let toUnauthorizedError x = toAppError Unauthorized x
 let toNotFoundError x = toAppError NotFoundError x
 let toConflictError x = toAppError ConflictError x
 let toFatalError x = toAppError FatalError x
