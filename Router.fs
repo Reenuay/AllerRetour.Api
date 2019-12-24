@@ -33,7 +33,6 @@ let tryRegister (input: RegistrationRequest.T) =
 
     return Command.registerCustomer input
   }
-  |> sendEmailIfOk { To = input.Email; Subject = "Test"; Body = "Testing email sending!" }
   |> logResult
     (fun _ -> sprintf "Registration successful: %s" input.Email)
     (fun e -> sprintf "Registration failed: %s %s" input.Email (toList e |> Json.serialize))
