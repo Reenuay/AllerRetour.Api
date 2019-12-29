@@ -25,11 +25,7 @@ module TwoTrackResult =
 
   let map f = either (f >> succeed) (fail)
 
-  let tee f x =
-    f x |> ignore
-    x
-
-  let eitherTeeResult fSuccess fFailure
+  let eitherTeeR fSuccess fFailure
     = either (tee fSuccess >> succeed) (tee fFailure >> fail)
 
   let mult fSuccess fFailure switch1 switch2 x =
@@ -44,15 +40,21 @@ module TwoTrackResult =
     let error e1 e2 = e1 @ e2
     mult ok error v1 v2 x
 
-  let resultIf rSuccess rFailure = function
+  let ifR rSuccess rFailure = function
   | true  -> Success rSuccess
   | false -> Failure rFailure
 
-  let failIfFalse rFailure = resultIf () rFailure
+  let failIfFalse rFailure = ifR () rFailure
 
-  let chain predicate rFailure x = resultIf x rFailure (predicate x)
+  let chain predicate rFailure x =
+    predicate x
+    |> ifR x rFailure
 
-  let adapt switch map x = x |> map |> switch |> either (fun _ -> succeed x) fail
+  let adapt switch map x =
+    x
+    |> map
+    |> switch
+    |> either (succeed x |> ignore2) fail
 
   let failIfNone rFailure = function
   | Some x -> Success x

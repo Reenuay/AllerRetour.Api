@@ -9,23 +9,23 @@ open Giraffe
 open TwoTrackResult
 open Input
 
+let logger = Log.Logger
+
+let tryCatchR f x =
+  tryCatch id (List.wrap >> AppError.create Fatal >> fail) f x
+
 let authorize : HttpHandler =
   requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
 
 let successSendMail mail =
-  eitherTeeResult (fun _ -> Mail.send mail) ignore
-
-let logger = Log.Logger
-
-let eitherLog onOk onError =
-  eitherTeeResult (onOk >> logger.Information) (onError >> logger.Information)
+  eitherTeeR (Mail.send mail |> ignore2) ignore
 
 let tryRegister (input: RegistrationRequest.T) =
   result {
     do!  Query.customerByEmail input.Email
       |> Seq.tryExactlyOne = None
       |> failIfFalse ["Email is already registered"]
-      |> AppError.specify ConflictError
+      |> AppError.specify Conflict
 
     return Command.registerCustomer input
   }
@@ -36,11 +36,11 @@ let tryAuthenticate (input: AuthenticationRequest.T) =
       =  Query.customerByEmail input.Email
       |> Seq.tryExactlyOne
       |> failIfNone ["User with that email is not found"]
-      |> AppError.specify NotFoundError
+      |> AppError.specify NotFound
 
     do!  Pbkdf2.verify customer.PasswordHash input.Password
       |> failIfFalse ["Invalid password"]
-      |> AppError.specify UnauthorizedError
+      |> AppError.specify Unauthorized
 
     return Auth.generateToken customer
   }
@@ -49,31 +49,24 @@ let jsonWithCode code x = setStatusCode code >=> text (Json.serialize x)
 
 let onFailure (AppError (case, x)) =
   match case with
-  | ValidationError   -> jsonWithCode 400 x
-  | UnauthorizedError -> jsonWithCode 401 x
-  | NotFoundError     -> jsonWithCode 404 x
-  | ConflictError     -> jsonWithCode 409 x
-  | FatalError        -> jsonWithCode 500 ["Server error"]
+  | Validation   -> jsonWithCode 400 x
+  | Unauthorized -> jsonWithCode 401 x
+  | NotFound     -> jsonWithCode 404 x
+  | Conflict     -> jsonWithCode 409 x
+  | Fatal        -> jsonWithCode 500 ["Server error"]
 
 let resultToHandler x = either (jsonWithCode 200) onFailure x
 
-let createHandler validator switch input =
-  warbler (
-    fun _ ->
-      try
-        match validator input with
-        | Success s -> switch s
-        | Failure f -> AppError.create ValidationError f |> fail
-      with
-      | ex -> AppError.create FatalError [ex.Message] |> fail
-      |> resultToHandler
-  )
+let createHandler validator switch
+  =  validator
+  >> either (tryCatchR switch) (AppError.create Validation >> fail)
+  >> resultToHandler
+  >> ignore2
+  >> warbler
 
-let registrationHandler =
-  createHandler RegistrationRequest.validate tryRegister
+let registrationHandler = createHandler RegistrationRequest.validate tryRegister
 
-let authenticationHandler =
-  createHandler AuthenticationRequest.validate tryAuthenticate
+let authenticationHandler = createHandler AuthenticationRequest.validate tryAuthenticate
 
 let handleGetSecured =
   fun (next : HttpFunc) (ctx : HttpContext) ->
@@ -81,7 +74,7 @@ let handleGetSecured =
 
     text ("User " + id.Value + " is authorized to access this resource.") next ctx
 
-let badRequest _ = jsonWithCode 400 ["Bad request"]
+let badRequest = jsonWithCode 400 ["Bad request"] |> ignore2
 
 let inline jsonBind (handler : ^T -> HttpHandler) = Json.tryBind badRequest handler
 

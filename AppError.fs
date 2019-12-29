@@ -3,11 +3,11 @@ namespace AllerRetour
 open TwoTrackResult
 
 type AppErrorCase =
-  | ValidationError
-  | UnauthorizedError
-  | NotFoundError
-  | ConflictError
-  | FatalError
+  | Validation
+  | Unauthorized
+  | NotFound
+  | Conflict
+  | Fatal
 
 type AppError = AppError of AppErrorCase * string list
 
