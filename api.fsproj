@@ -6,18 +6,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Json.fs" />
-    <Compile Include="PBKDF2.fs" />
     <Compile Include="Generators.fs" />
-    <Compile Include="ResultUtils.fs" />
     <Compile Include="Validators.fs" />
     <Compile Include="Cleaners.fs" />
+    <Compile Include="TwoTrackResult.fs" />
+    <Compile Include="Json.fs" />
+    <Compile Include="PBKDF2.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Input.fs" />
     <Compile Include="Query.fs" />
     <Compile Include="Command.fs" />
     <Compile Include="Auth.fs" />
     <Compile Include="Mail.fs" />
+    <Compile Include="AppError.fs" />
     <Compile Include="Router.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

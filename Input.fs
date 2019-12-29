@@ -1,8 +1,8 @@
-module Input
+module AllerRetour.Input
 
-open ResultUtils
 open Validators
 open Cleaners
+open TwoTrackResult
 
 module private GenericValidators =
   let emailError field = [sprintf "%s has bad email format" field]
@@ -40,7 +40,6 @@ module private GenericValidators =
 
 module RegistrationRequest =
 
-  open Result
   open GenericValidators
 
   type T = {

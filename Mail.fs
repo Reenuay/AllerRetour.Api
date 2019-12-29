@@ -1,4 +1,4 @@
-module Mail
+module AllerRetour.Mail
 
 open System.Net.Mail
 

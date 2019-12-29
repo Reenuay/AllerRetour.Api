@@ -1,4 +1,4 @@
-module Generators
+module AllerRetour.Generators
 
 open System
 

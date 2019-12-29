@@ -1,4 +1,4 @@
-module Db
+module AllerRetour.Db
 
 open FSharp.Data.Sql
 

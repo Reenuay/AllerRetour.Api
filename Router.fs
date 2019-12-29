@@ -1,4 +1,4 @@
-module Router
+module AllerRetour.Router
 
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication.JwtBearer
@@ -6,81 +6,66 @@ open Microsoft.AspNetCore.Authentication.JwtBearer
 open Serilog
 open Giraffe
 
+open TwoTrackResult
 open Input
-open ResultUtils
 
-// --------------AUTH--------------
 let authorize : HttpHandler =
   requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
 
-// --------------EMAIL SENDING--------------
-let sendEmailIfOk mail =
-  side (fun _ -> Mail.send mail) ignore
+let successSendMail mail =
+  eitherTeeResult (fun _ -> Mail.send mail) ignore
 
-// --------------LOGGING--------------
 let logger = Log.Logger
 
-let logResult onOk onError =
-  side (onOk >> logger.Information) (onError >> logger.Information)
+let eitherLog onOk onError =
+  eitherTeeResult (onOk >> logger.Information) (onError >> logger.Information)
 
-// --------------RESULT WORKFLOWS--------------
 let tryRegister (input: RegistrationRequest.T) =
   result {
     do!  Query.customerByEmail input.Email
       |> Seq.tryExactlyOne = None
-      |> falseTo ["Email is already registered"]
-      |> toConflictError
+      |> failIfFalse ["Email is already registered"]
+      |> AppError.specify ConflictError
 
     return Command.registerCustomer input
   }
-  |> logResult
-    (fun _ -> sprintf "Registration successful: %s" input.Email)
-    (fun e -> sprintf "Registration failed: %s %s" input.Email (toList e |> Json.serialize))
 
 let tryAuthenticate (input: AuthenticationRequest.T) =
   result {
     let! customer
       =  Query.customerByEmail input.Email
       |> Seq.tryExactlyOne
-      |> fromOption ["User with that email is not found"]
-      |> toNotFoundError
+      |> failIfNone ["User with that email is not found"]
+      |> AppError.specify NotFoundError
 
     do!  Pbkdf2.verify customer.PasswordHash input.Password
-      |> falseTo ["Invalid password"]
-      |> toUnauthorizedError
+      |> failIfFalse ["Invalid password"]
+      |> AppError.specify UnauthorizedError
 
     return Auth.generateToken customer
   }
-  |> logResult
-    (fun _ -> sprintf "Auth successful: %s" input.Email)
-    (fun e -> sprintf "Auth failed: %s %s" input.Email (toList e |> Json.serialize))
 
-// --------------HANDLERS--------------
 let jsonWithCode code x = setStatusCode code >=> text (Json.serialize x)
 
-let onError (AppError (case, x)) =
+let onFailure (AppError (case, x)) =
   match case with
-  | ValidationError -> jsonWithCode 400 x
-  | Unauthorized    -> jsonWithCode 401 x
-  | NotFoundError   -> jsonWithCode 404 x
-  | ConflictError   -> jsonWithCode 409 x
-  | FatalError      ->
-    logger.Error(Json.serialize x)
-    jsonWithCode 500 ["Oops! Something went wrong..."]
+  | ValidationError   -> jsonWithCode 400 x
+  | UnauthorizedError -> jsonWithCode 401 x
+  | NotFoundError     -> jsonWithCode 404 x
+  | ConflictError     -> jsonWithCode 409 x
+  | FatalError        -> jsonWithCode 500 ["Server error"]
 
-let resultToHandler = function
-| Ok    o -> jsonWithCode 200 o
-| Error e -> onError e
+let resultToHandler x = either (jsonWithCode 200) onFailure x
 
 let createHandler validator switch input =
   warbler (
     fun _ ->
       try
         match validator input with
-        | Ok o    -> switch o
-        | Error e -> Error e |> toValidationError
+        | Success s -> switch s
+        | Failure f -> AppError.create ValidationError f |> fail
       with
-      | ex -> listToAppError FatalError [ex.Message]
+      | ex -> AppError.create FatalError [ex.Message] |> fail
       |> resultToHandler
   )
 
@@ -96,7 +81,6 @@ let handleGetSecured =
 
     text ("User " + id.Value + " is authorized to access this resource.") next ctx
 
-// --------------APP--------------
 let badRequest _ = jsonWithCode 400 ["Bad request"]
 
 let inline jsonBind (handler : ^T -> HttpHandler) = Json.tryBind badRequest handler

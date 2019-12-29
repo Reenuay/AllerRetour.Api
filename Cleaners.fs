@@ -1,4 +1,4 @@
-module Cleaners
+module AllerRetour.Cleaners
 
 open System.Text.RegularExpressions
 
