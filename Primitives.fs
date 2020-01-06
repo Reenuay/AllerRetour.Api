@@ -13,6 +13,3 @@ module AllerRetour.Primitives
     | ex -> fError ex.Message
 
   let ignore2 x _ = x
-
-  module List =
-    let wrap x = [x]

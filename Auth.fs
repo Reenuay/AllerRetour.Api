@@ -6,7 +6,7 @@ open System.Security.Claims
 open System.IdentityModel.Tokens.Jwt
 open Microsoft.IdentityModel.Tokens
 
-open Db
+open Dto
 
 [<AbstractClass; Sealed>]
 type Settings private () =

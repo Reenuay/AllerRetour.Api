@@ -38,7 +38,7 @@ module private GenericValidators =
     =  chain (hasMinLengthOf Name.min) (minLengthError field Name.min)
     ++ chain (hasMaxLengthOf Name.max) (maxLengthError field Name.max)
 
-module RegistrationRequest =
+module RegRequest =
 
   open GenericValidators
 
@@ -62,7 +62,7 @@ module RegistrationRequest =
     ++ adapt (passwordValidator "Password") (fun r -> r.Password)
     >> map cleanName
 
-module AuthenticationRequest =
+module AuthRequest =
 
   open GenericValidators
 

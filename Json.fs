@@ -8,7 +8,7 @@ open Microsoft.FSharpLu.Json
 let serialize = Compact.Strict.serialize
 let inline deserialize s = Compact.Strict.tryDeserialize s
 
-let inline tryBind (parsingErrorHandler : string -> HttpHandler)
+let inline tryBind (parsingErrorHandler : HttpHandler)
                    (successHandler      : ^T -> HttpHandler) : HttpHandler =
   fun (next: HttpFunc) (ctx: HttpContext) ->
     task {
@@ -18,5 +18,5 @@ let inline tryBind (parsingErrorHandler : string -> HttpHandler)
       return!
         (match res with
         | Choice1Of2 dto -> successHandler dto
-        | Choice2Of2 err -> parsingErrorHandler err) next ctx
+        | Choice2Of2 _   -> parsingErrorHandler) next ctx
     }

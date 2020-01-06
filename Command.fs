@@ -1,8 +1,9 @@
 module AllerRetour.Command
 
+open Dto
 open Input
 
-let registerCustomer (input: RegistrationRequest.T) =
+let registerCustomer (input: RegRequest.T) =
   let cardId = Generators.randomCardId ()
   let hash   = Pbkdf2.strongHash input.Password
 
@@ -20,4 +21,4 @@ let registerCustomer (input: RegistrationRequest.T) =
 
   Db.submit ()
 
-  customer.Id
+  Customer.fromDb customer

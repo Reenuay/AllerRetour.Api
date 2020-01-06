@@ -1,6 +1,7 @@
 module AllerRetour.Query
 
 open Db
+open Dto
 
 let customerByEmail email =
   query {

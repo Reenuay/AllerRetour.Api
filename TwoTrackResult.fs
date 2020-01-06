@@ -25,6 +25,10 @@ module TwoTrackResult =
 
   let map f = either (f >> succeed) (fail)
 
+  let bind f = either f fail
+
+  let bindFailure f = either succeed f
+
   let eitherTeeR fSuccess fFailure
     = either (tee fSuccess >> succeed) (tee fFailure >> fail)
 
@@ -59,3 +63,7 @@ module TwoTrackResult =
   let failIfNone rFailure = function
   | Some x -> Success x
   | None   -> Failure rFailure
+
+  let failIfSome rFailure = function
+  | Some _ -> Failure rFailure
+  | None   -> Success ()

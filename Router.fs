@@ -3,16 +3,11 @@ module AllerRetour.Router
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication.JwtBearer
 
-open Serilog
 open Giraffe
 
 open TwoTrackResult
 open Input
-
-let logger = Log.Logger
-
-let tryCatchR f x =
-  tryCatch id (List.wrap >> AppError.create Fatal >> fail) f x
+open Logger
 
 let authorize : HttpHandler =
   requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
@@ -20,69 +15,86 @@ let authorize : HttpHandler =
 let successSendMail mail =
   eitherTeeR (Mail.send mail |> ignore2) ignore
 
-let tryRegister (input: RegistrationRequest.T) =
-  result {
+let tryCatchR fFailure f = tryCatch id (fFailure >> fail) f
+
+let tryReg _ = // TO DO ADD SUCCESS LOGGING
+  let f (input: RegRequest.T) = result {
     do!  Query.customerByEmail input.Email
-      |> Seq.tryExactlyOne = None
-      |> failIfFalse ["Email is already registered"]
-      |> AppError.specify Conflict
+      |> Seq.tryExactlyOne
+      |> failIfSome (EmailIsAlreadyRegistered input.Email)
 
     return Command.registerCustomer input
   }
 
-let tryAuthenticate (input: AuthenticationRequest.T) =
-  result {
-    let! customer
-      =  Query.customerByEmail input.Email
-      |> Seq.tryExactlyOne
-      |> failIfNone ["User with that email is not found"]
-      |> AppError.specify NotFound
+  tryCatchR DbError f
 
-    do!  Pbkdf2.verify customer.PasswordHash input.Password
-      |> failIfFalse ["Invalid password"]
-      |> AppError.specify Unauthorized
+let tryAuth _ = // TO DO ADD SUCCESS LOGGING
+  let f (input: AuthRequest.T) =
+    result {
+      let! customer
+        =  Query.customerByEmail input.Email
+        |> Seq.tryExactlyOne
+        |> failIfNone (CustomerNotFound input.Email)
 
-    return Auth.generateToken customer
-  }
+      do!  Pbkdf2.verify customer.PasswordHash input.Password
+        |> failIfFalse (InvalidPassword input.Email)
 
-let jsonWithCode code x = setStatusCode code >=> text (Json.serialize x)
+      return Auth.generateToken customer
+    }
 
-let onFailure (AppError (case, x)) =
-  match case with
-  | Validation   -> jsonWithCode 400 x
-  | Unauthorized -> jsonWithCode 401 x
-  | NotFound     -> jsonWithCode 404 x
-  | Conflict     -> jsonWithCode 409 x
-  | Fatal        -> jsonWithCode 500 ["Server error"]
+  tryCatchR DbError f
 
-let resultToHandler x = either (jsonWithCode 200) onFailure x
+let toLogs = function
+  | EmailIsAlreadyRegistered e -> sprintf "Invalid registration attempt: %s" e
+  | CustomerNotFound e
+    -> sprintf "Invalid authentication attempt. Email is not registered: %s" e
+  | InvalidPassword e
+    -> sprintf "Invalid authentication attempt. Invalid password. %s" e
+  | Validation _ -> ""
+  | DbError e -> e
 
-let createHandler validator switch
-  =  validator
-  >> either (tryCatchR switch) (AppError.create Validation >> fail)
-  >> resultToHandler
-  >> ignore2
-  >> warbler
+let logError e =
+  let method =
+    match e with
+    | EmailIsAlreadyRegistered _ | CustomerNotFound _ | InvalidPassword _ -> logger.Information
+    | DbError _ -> logger.Error
+    | Validation _ -> logger.Debug
 
-let registrationHandler = createHandler RegistrationRequest.validate tryRegister
+  toLogs e |> method
 
-let authenticationHandler = createHandler AuthenticationRequest.validate tryAuthenticate
+  fail e
 
-let handleGetSecured =
-  fun (next : HttpFunc) (ctx : HttpContext) ->
-    let id = ctx.User.FindFirst Auth.customerIdClaim
+let handleError = function
+  | EmailIsAlreadyRegistered _ -> Status.conflictError "Email is already registered"
+  | CustomerNotFound _         -> Status.notFoundError "Customer not found"
+  | InvalidPassword _          -> Status.unauthorizedError "Invalid password"
+  | Validation ers             -> Status.validationError ers
+  | DbError _                  -> Status.serverError
 
-    text ("User " + id.Value + " is authorized to access this resource.") next ctx
+let resultToHandler x = either Status.ok handleError x
 
-let badRequest = jsonWithCode 400 ["Bad request"] |> ignore2
+let createHandler validator switch input =
+  let f x =
+    input
+    |> validator
+    |> bindFailure (Validation >> fail)
+    |> bind (switch x)
+    |> bindFailure logError
+    |> resultToHandler
 
-let inline jsonBind (handler : ^T -> HttpHandler) = Json.tryBind badRequest handler
+  warbler f
+
+let registrationHandler = createHandler RegRequest.validate tryReg
+
+let authenticationHandler = createHandler AuthRequest.validate tryAuth
+
+let inline jsonBind (handler : ^T -> HttpHandler)
+  = Json.tryBind (Status.validationError "Bad request") handler
 
 let createApp () : HttpHandler =
   subRoute "/customer" (
     POST >=> choose [
       route "/register" >=> jsonBind registrationHandler
       route "/auth"     >=> jsonBind authenticationHandler
-      route "/test"     >=> authorize >=> handleGetSecured
     ]
   )
