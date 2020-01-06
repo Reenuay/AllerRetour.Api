@@ -92,9 +92,14 @@ let inline jsonBind (handler : ^T -> HttpHandler)
   = Json.tryBind (Status.validationError "Bad request") handler
 
 let createApp () : HttpHandler =
-  subRoute "/customer" (
-    POST >=> choose [
-      route "/register" >=> jsonBind registrationHandler
-      route "/auth"     >=> jsonBind authenticationHandler
-    ]
+  subRoute "/api" (
+    subRoute "/customer" (
+      choose [
+        POST >=> choose [
+          route "/register" >=> jsonBind registrationHandler
+          route "/auth"     >=> jsonBind authenticationHandler
+        ]
+        Status.notFoundError "Not found"
+      ]
+    )
   )

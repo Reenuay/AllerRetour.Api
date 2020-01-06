@@ -7,6 +7,7 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.Hosting
 open Microsoft.AspNetCore.Hosting
 open Microsoft.IdentityModel.Tokens
+open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.AspNetCore.Authentication.JwtBearer
@@ -73,6 +74,16 @@ let main _ =
           options.TokenValidationParameters <- createTokenParams()
         )
         |> ignore
+
+      services
+        .Configure<ForwardedHeadersOptions>(
+          Action<ForwardedHeadersOptions>(
+            fun options ->
+              options.ForwardedHeaders <-
+                ForwardedHeaders.XForwardedFor ||| ForwardedHeaders.XForwardedProto
+          )
+        )
+        |> ignore
     )
     .ConfigureWebHost(
       fun webBuilder ->
@@ -87,6 +98,7 @@ let main _ =
                 | "Development" -> appBuilder.UseDeveloperExceptionPage()
                 | _             -> appBuilder
               )
+                .UseForwardedHeaders()
                 .UseAuthentication()
                 .UseGiraffe (createApp())
           )
