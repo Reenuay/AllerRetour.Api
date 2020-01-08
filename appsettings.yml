@@ -1,3 +1,5 @@
+Server:
+  Host: "aller-retour.com"
 Logger:
   Path: "/var/log/aller_retour/api.log"
 Auth:

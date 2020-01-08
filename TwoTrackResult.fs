@@ -27,8 +27,6 @@ module TwoTrackResult =
 
   let bind f = either f fail
 
-  let bindFailure f = either succeed f
-
   let eitherTeeR fSuccess fFailure
     = either (tee fSuccess >> succeed) (tee fFailure >> fail)
 

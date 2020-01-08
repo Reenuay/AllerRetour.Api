@@ -5,7 +5,8 @@ type AppError =
   | Validation of string list
   | DbError of string
 
-  // Specific errors
+  // Domain Errors
   | EmailIsAlreadyRegistered of string
+  | EmailIsNotConfirmed of string
   | CustomerNotFound of string
   | InvalidPassword of string

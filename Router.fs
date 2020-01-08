@@ -2,6 +2,7 @@ module AllerRetour.Router
 
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication.JwtBearer
+open FSharp.Control.Tasks.V2.ContextInsensitive
 
 open Giraffe
 
@@ -9,43 +10,15 @@ open TwoTrackResult
 open Input
 open Logger
 
+let tryCatchR fFailure f = tryCatch succeed (fFailure >> fail) f
+
 let authorize : HttpHandler =
   requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
 
-let successSendMail mail =
-  eitherTeeR (Mail.send mail |> ignore2) ignore
-
-let tryCatchR fFailure f = tryCatch id (fFailure >> fail) f
-
-let tryReg _ = // TO DO ADD SUCCESS LOGGING
-  let f (input: RegRequest.T) = result {
-    do!  Query.customerByEmail input.Email
-      |> Seq.tryExactlyOne
-      |> failIfSome (EmailIsAlreadyRegistered input.Email)
-
-    return Command.registerCustomer input
-  }
-
-  tryCatchR DbError f
-
-let tryAuth _ = // TO DO ADD SUCCESS LOGGING
-  let f (input: AuthRequest.T) =
-    result {
-      let! customer
-        =  Query.customerByEmail input.Email
-        |> Seq.tryExactlyOne
-        |> failIfNone (CustomerNotFound input.Email)
-
-      do!  Pbkdf2.verify customer.PasswordHash input.Password
-        |> failIfFalse (InvalidPassword input.Email)
-
-      return Auth.generateToken customer
-    }
-
-  tryCatchR DbError f
-
 let toLogs = function
   | EmailIsAlreadyRegistered e -> sprintf "Invalid registration attempt: %s" e
+  | EmailIsNotConfirmed e
+    -> sprintf "Invalid authentication attempt. Email is not confirmed: %s" e
   | CustomerNotFound e
     -> sprintf "Invalid authentication attempt. Email is not registered: %s" e
   | InvalidPassword e
@@ -53,51 +26,98 @@ let toLogs = function
   | Validation _ -> ""
   | DbError e -> e
 
-let logError e =
-  let method =
-    match e with
-    | EmailIsAlreadyRegistered _ | CustomerNotFound _ | InvalidPassword _ -> logger.Information
+let failureLog e =
+  let level x =
+    match x with
+    | EmailIsAlreadyRegistered _ | EmailIsNotConfirmed _
+    | CustomerNotFound _ | InvalidPassword _ -> logger.Information
     | DbError _ -> logger.Error
     | Validation _ -> logger.Debug
 
-  toLogs e |> method
-
-  fail e
+  either succeed (fun x -> level x (toLogs x); fail x) e
 
 let handleError = function
   | EmailIsAlreadyRegistered _ -> Status.conflictError "Email is already registered"
   | CustomerNotFound _         -> Status.notFoundError "Customer not found"
+  | EmailIsNotConfirmed _      -> Status.unauthorizedError "Email is not confirmed"
   | InvalidPassword _          -> Status.unauthorizedError "Invalid password"
   | Validation ers             -> Status.validationError ers
   | DbError _                  -> Status.serverError
 
-let resultToHandler x = either Status.ok handleError x
+let inline json (successHandler: ^T -> HttpHandler) : HttpHandler =
+  fun (next: HttpFunc) (ctx: HttpContext) ->
+    task {
+      let! payload = ctx.ReadBodyFromRequestAsync()
+      let  res     = Json.deserialize payload
 
-let createHandler validator switch input =
-  let f x =
-    input
-    |> validator
-    |> bindFailure (Validation >> fail)
-    |> bind (switch x)
-    |> bindFailure logError
-    |> resultToHandler
+      return!
+        (match res with
+        | Choice1Of2 dto -> successHandler dto
+        | Choice2Of2 _   -> Status.validationError "Bad request") next ctx
+    }
 
-  warbler f
+let toHandler x
+  =  x
+  |> either Status.ok handleError
+  |> ignore2
+  |> warbler
 
-let registrationHandler = createHandler RegRequest.validate tryReg
+let sendEmail (customer: Dto.Customer) =
+  try
+    let code = Command.createConfirmationToken customer.Email
+    Mail.sendConfirm customer.Email code
+  with
+  | exn -> logger.Error(exn.Message)
 
-let authenticationHandler = createHandler AuthRequest.validate tryAuth
+  customer
 
-let inline jsonBind (handler : ^T -> HttpHandler)
-  = Json.tryBind (Status.validationError "Bad request") handler
+let tryRegister (input: RegRequest.T) =
+  result {
+    do!  Query.customerByEmail input.Email
+      |> Seq.tryExactlyOne
+      |> failIfSome (EmailIsAlreadyRegistered input.Email)
+
+    return Command.registerCustomer input
+  }
+
+let tryAuthenticate (input: AuthRequest.T) =
+  result {
+    let! customer
+      =  Query.customerByEmail input.Email
+      |> Seq.tryExactlyOne
+      |> failIfNone (CustomerNotFound input.Email)
+
+    do!  customer.EmailConfirmed
+      |> failIfFalse (EmailIsNotConfirmed input.Email)
+
+    do!  Pbkdf2.verify customer.PasswordHash input.Password
+      |> failIfFalse (InvalidPassword input.Email)
+
+    return Auth.generateToken customer
+  }
+
+let registrationHandler
+  =  RegRequest.validate
+  >> bind tryRegister
+  >> failureLog
+  >> map sendEmail
+  >> toHandler
+  |> json
+
+let authenticationHandler
+  =  AuthRequest.validate
+  >> bind tryAuthenticate
+  >> failureLog
+  >> toHandler
+  |> json
 
 let createApp () : HttpHandler =
   subRoute "/api" (
     subRoute "/customer" (
       choose [
         POST >=> choose [
-          route "/register" >=> jsonBind registrationHandler
-          route "/auth"     >=> jsonBind authenticationHandler
+          route "/register" >=> registrationHandler
+          route "/auth"     >=> authenticationHandler
         ]
         Status.notFoundError "Not found"
       ]

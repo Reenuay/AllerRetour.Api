@@ -11,5 +11,6 @@ let customerByEmail email =
       Id = c.Id
       Email = c.Email
       PasswordHash = c.PasswordHash
+      EmailConfirmed = c.EmailConfirmed
     })
   }

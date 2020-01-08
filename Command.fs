@@ -3,6 +3,17 @@ module AllerRetour.Command
 open Dto
 open Input
 
+let createConfirmationToken email =
+  let guid = Generators.randomGuid ()
+
+  let token = Db.emailConfirmationTokens.Create ()
+  token.Email <- email
+  token.Token <- guid
+
+  Db.submit ()
+
+  guid
+
 let registerCustomer (input: RegRequest.T) =
   let cardId = Generators.randomCardId ()
   let hash   = Pbkdf2.strongHash input.Password

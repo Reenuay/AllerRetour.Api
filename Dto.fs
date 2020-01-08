@@ -6,6 +6,7 @@ type Customer = {
   Id: int64
   Email: string
   PasswordHash: string
+  EmailConfirmed: bool
 }
 
 module Customer =
@@ -13,4 +14,5 @@ module Customer =
     Id = c.Id
     Email = c.Email
     PasswordHash = c.PasswordHash
+    EmailConfirmed = c.EmailConfirmed
   }

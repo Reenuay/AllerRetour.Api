@@ -1,7 +1,7 @@
 module AllerRetour.Input
 
 open Validators
-open Cleaners
+open Normalizers
 open TwoTrackResult
 
 module private GenericValidators =
@@ -10,8 +10,11 @@ module private GenericValidators =
     = [sprintf "%s must be at least %i characters long" field l]
   let maxLengthError field l
     = [sprintf "%s can be maximum %i characters long" field l]
+  let exactLengthError field l
+    = [sprintf "%s must be exactly %i characters long" field l]
   let restrictedWordsError field
     = [sprintf "%s is not allowed to contain any part of application name" field]
+  let guidError field = [sprintf "%s has bad format" field]
 
   module private Email =
     let max = 100
@@ -25,8 +28,11 @@ module private GenericValidators =
     let min = 1
     let max = 100
 
+  module private Guid =
+    let length = 36
+
   let emailValidator field
-    =  chain isEmail (emailError field)
+    =  chain isValidEmail (emailError field)
     ++ chain (hasMaxLengthOf Email.max) (maxLengthError field Email.max)
 
   let passwordValidator field
@@ -37,6 +43,10 @@ module private GenericValidators =
   let nameValidator field
     =  chain (hasMinLengthOf Name.min) (minLengthError field Name.min)
     ++ chain (hasMaxLengthOf Name.max) (maxLengthError field Name.max)
+
+  let guidValidator field
+    =  chain isValidGuid (guidError field)
+    ++ chain (hasExactLengthOf Guid.length) (exactLengthError field Guid.length)
 
 module RegRequest =
 
@@ -61,6 +71,7 @@ module RegRequest =
     ++ adapt (emailValidator "Email") (fun r -> r.Email)
     ++ adapt (passwordValidator "Password") (fun r -> r.Password)
     >> map cleanName
+    >> either succeed (Validation >> fail)
 
 module AuthRequest =
 
@@ -74,3 +85,18 @@ module AuthRequest =
   let validate
     =  adapt (emailValidator "Email") (fun a -> a.Email)
     ++ adapt (passwordValidator "Password") (fun a -> a.Password)
+    >> either succeed (Validation >> fail)
+
+module EmailConfirmRequest =
+
+  open GenericValidators
+
+  type T = {
+    Email: string
+    Code: string
+  }
+
+  let validate
+    =  adapt (emailValidator "Email") (fun a -> a.Email)
+    ++ adapt (guidValidator "Code") (fun a -> a.Code)
+    >> either succeed (Validation >> fail)

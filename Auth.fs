@@ -8,12 +8,6 @@ open Microsoft.IdentityModel.Tokens
 
 open Dto
 
-[<AbstractClass; Sealed>]
-type Settings private () =
-  static member val Secret = "" with get, set
-  static member val Issuer = "" with get, set
-  static member val Audience = "" with get, set
-
 type TokenResult = {
   Token : string
 }
@@ -29,7 +23,7 @@ let generateToken customer =
 
   let expires = Nullable(DateTime.UtcNow.AddMinutes(15.0))
   let notBefore = Nullable(DateTime.UtcNow)
-  let securityKey = SymmetricSecurityKey(Encoding.UTF8.GetBytes(Settings.Secret))
+  let securityKey = SymmetricSecurityKey(Encoding.UTF8.GetBytes(Globals.Auth.Secret))
   let signingCredentials =
     SigningCredentials(
       key = securityKey,
@@ -38,8 +32,8 @@ let generateToken customer =
 
   let token =
     JwtSecurityToken(
-      issuer = Settings.Issuer,
-      audience = Settings.Audience,
+      issuer = Globals.Auth.Issuer,
+      audience = Globals.Auth.Audience,
       claims = claims,
       expires = expires,
       notBefore = notBefore,

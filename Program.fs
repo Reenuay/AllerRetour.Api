@@ -23,10 +23,10 @@ let createTokenParams () =
   tokenParams.ValidateAudience <- true
   tokenParams.ValidateLifetime <- true
   tokenParams.ValidateIssuerSigningKey <- true
-  tokenParams.ValidIssuer <- Auth.Settings.Issuer
-  tokenParams.ValidAudience <- Auth.Settings.Audience
+  tokenParams.ValidIssuer <- Globals.Auth.Issuer
+  tokenParams.ValidAudience <- Globals.Auth.Audience
   tokenParams.IssuerSigningKey <- SymmetricSecurityKey(
-    Encoding.UTF8.GetBytes(Auth.Settings.Secret)
+    Encoding.UTF8.GetBytes(Globals.Auth.Secret)
   )
   tokenParams
 
@@ -41,12 +41,14 @@ let main _ =
       .AddYamlFile("appsettings.optional.yml", true)
       .Build()
 
-  Auth.Settings.Secret   <- config.["Auth:Secret"]
-  Auth.Settings.Issuer   <- config.["Auth:Issuer"]
-  Auth.Settings.Audience <- config.["Auth:Audience"]
+  Globals.Server.Host <- config.["Server:Host"]
 
-  Mail.Settings.Host    <- config.["Mail:Host"]
-  Mail.Settings.Address <- config.["Mail:Address"]
+  Globals.Auth.Secret   <- config.["Auth:Secret"]
+  Globals.Auth.Issuer   <- config.["Auth:Issuer"]
+  Globals.Auth.Audience <- config.["Auth:Audience"]
+
+  Globals.Mail.Host    <- config.["Mail:Host"]
+  Globals.Mail.Address <- config.["Mail:Address"]
 
   let logger =
     LoggerConfiguration()
