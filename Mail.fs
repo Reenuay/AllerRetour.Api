@@ -10,8 +10,9 @@ type Mail = {
 
 let send mail =
   use msg    = new MailMessage(Globals.Mail.Address, mail.To, mail.Subject, mail.Body)
-  use client = new SmtpClient(Globals.Mail.Host)
+  msg.IsBodyHtml <- true
 
+  use client = new SmtpClient(Globals.Mail.Host)
   client.DeliveryMethod <- SmtpDeliveryMethod.Network
 
   client.Send msg
