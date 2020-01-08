@@ -101,6 +101,7 @@ let registrationHandler
   >> bind tryRegister
   >> failureLog
   >> map sendEmail
+  >> map (fun x -> x.Id)
   >> toHandler
   |> json
 
