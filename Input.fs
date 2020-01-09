@@ -52,6 +52,7 @@ module RegRequest =
 
   open GenericValidators
 
+  [<CLIMutable>]
   type T = {
     FirstName: string
     LastName: string
@@ -77,6 +78,7 @@ module AuthRequest =
 
   open GenericValidators
 
+  [<CLIMutable>]
   type T = {
     Email: string
     Password: string
@@ -91,6 +93,7 @@ module EmailConfirmRequest =
 
   open GenericValidators
 
+  [<CLIMutable>]
   type T = {
     Email: string
     Code: string

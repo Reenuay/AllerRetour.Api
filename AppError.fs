@@ -10,3 +10,4 @@ type AppError =
   | EmailIsNotConfirmed of string
   | CustomerNotFound of string
   | InvalidPassword of string
+  | TokenNotFound of string

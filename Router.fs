@@ -1,5 +1,6 @@
 module AllerRetour.Router
 
+open System
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication.JwtBearer
 open FSharp.Control.Tasks.V2.ContextInsensitive
@@ -21,6 +22,8 @@ let toLogs = function
     -> sprintf "Invalid authentication attempt. Email is not confirmed: %s" e
   | CustomerNotFound e
     -> sprintf "Invalid authentication attempt. Email is not registered: %s" e
+  | TokenNotFound e
+    -> sprintf "Invalid email confirmation attempt. Token not found. %s" e
   | InvalidPassword e
     -> sprintf "Invalid authentication attempt. Invalid password. %s" e
   | Validation _ -> ""
@@ -30,7 +33,7 @@ let failureLog e =
   let level x =
     match x with
     | EmailIsAlreadyRegistered _ | EmailIsNotConfirmed _
-    | CustomerNotFound _ | InvalidPassword _ -> logger.Information
+    | CustomerNotFound _ | InvalidPassword _ | TokenNotFound _ -> logger.Information
     | DbError _ -> logger.Error
     | Validation _ -> logger.Debug
 
@@ -39,12 +42,13 @@ let failureLog e =
 let handleError = function
   | EmailIsAlreadyRegistered _ -> Status.conflictError "Email is already registered"
   | CustomerNotFound _         -> Status.notFoundError "Customer not found"
+  | TokenNotFound _            -> Status.notFoundError "Token not found"
   | EmailIsNotConfirmed _      -> Status.unauthorizedError "Email is not confirmed"
   | InvalidPassword _          -> Status.unauthorizedError "Invalid password"
   | Validation ers             -> Status.validationError ers
   | DbError _                  -> Status.serverError
 
-let inline json (successHandler: ^T -> HttpHandler) : HttpHandler =
+let inline tryBindJson (successHandler: ^T -> HttpHandler) : HttpHandler =
   fun (next: HttpFunc) (ctx: HttpContext) ->
     task {
       let! payload = ctx.ReadBodyFromRequestAsync()
@@ -56,20 +60,21 @@ let inline json (successHandler: ^T -> HttpHandler) : HttpHandler =
         | Choice2Of2 _   -> Status.validationError "Bad request") next ctx
     }
 
+let tryBindQuery (successHandler: 'T -> HttpHandler)
+  = tryBindQuery (ignore2 (Status.validationError "Bad request")) None successHandler
+
 let toHandler x
   =  x
   |> either Status.ok handleError
   |> ignore2
   |> warbler
 
-let sendEmail (customer: Dto.Customer) =
+let sendConfirmEmail (customer: Db.Customer) =
   try
-    let code = Command.createConfirmationToken customer.Email
-    Mail.sendConfirm customer.Email code
+    let token = Command.createConfirmationToken customer.Email
+    Mail.sendConfirm customer.Email token.Token
   with
   | exn -> logger.Error(exn.Message)
-
-  customer
 
 let tryRegister (input: RegRequest.T) =
   result {
@@ -93,24 +98,51 @@ let tryAuthenticate (input: AuthRequest.T) =
     do!  Pbkdf2.verify customer.PasswordHash input.Password
       |> failIfFalse (InvalidPassword input.Email)
 
-    return Auth.generateToken customer
+    return Auth.generateToken customer.Id customer.Email
   }
 
-let registrationHandler
+let tryConfirmEmail (input: EmailConfirmRequest.T) =
+  result {
+    let! customer
+      =  Query.customerByEmail input.Email
+      |> Seq.tryExactlyOne
+      |> failIfNone (CustomerNotFound input.Email)
+
+    let! token
+      =  Query.emailConfirmationToken input.Email input.Code
+      |> Seq.tryExactlyOne
+      |> failIfNone (TokenNotFound input.Email)
+
+    do!
+      try
+        Command.confirmEmail customer token |> succeed
+      with
+      | e -> DbError e.Message |> fail
+
+    return "Email confirmed"
+  }
+
+let registrationHandler : HttpHandler
   =  RegRequest.validate
   >> bind tryRegister
   >> failureLog
-  >> map sendEmail
+  >> map (tee sendConfirmEmail)
   >> map (fun x -> x.Id)
   >> toHandler
-  |> json
+  |> tryBindJson
 
-let authenticationHandler
+let authenticationHandler : HttpHandler
   =  AuthRequest.validate
   >> bind tryAuthenticate
   >> failureLog
   >> toHandler
-  |> json
+  |> tryBindJson
+
+let confirmationHandler : HttpHandler
+  =  EmailConfirmRequest.validate
+  >> bind tryConfirmEmail
+  >> toHandler
+  |> tryBindQuery
 
 let createApp () : HttpHandler =
   subRoute "/api" (
@@ -119,6 +151,9 @@ let createApp () : HttpHandler =
         POST >=> choose [
           route "/register" >=> registrationHandler
           route "/auth"     >=> authenticationHandler
+        ]
+        GET >=> choose [
+          route "/confirm" >=> confirmationHandler
         ]
         Status.notFoundError "Not found"
       ]

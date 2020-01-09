@@ -1,35 +1,40 @@
 module AllerRetour.Command
 
-open Dto
+open Db
 open Input
 
 let createConfirmationToken email =
   let guid = Generators.randomGuid ()
 
-  let token = Db.emailConfirmationTokens.Create ()
+  let token = emailConfirmationTokens.Create ()
   token.Email <- email
   token.Token <- guid
 
-  Db.submit ()
+  submit ()
 
-  guid
+  token
 
 let registerCustomer (input: RegRequest.T) =
   let cardId = Generators.randomCardId ()
   let hash   = Pbkdf2.strongHash input.Password
 
-  let customer = Db.customers.Create ()
+  let customer = customers.Create ()
   customer.Email        <- input.Email
   customer.CardId       <- cardId
   customer.PasswordHash <- hash
 
-  Db.submit ()
+  submit ()
 
-  let profile = Db.customerProfiles.Create ()
+  let profile = customerProfiles.Create ()
   profile.CustomerId <- customer.Id
   profile.FirstName  <- input.FirstName
   profile.LastName   <- input.LastName
 
-  Db.submit ()
+  submit ()
 
-  Customer.fromDb customer
+  customer
+
+let confirmEmail (customer: Customer) (token: EmailConfirmationToken) =
+  customer.EmailConfirmed <- true
+  token.IsUsed <- true
+  submit()

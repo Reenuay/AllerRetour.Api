@@ -15,6 +15,9 @@ type AllerRetourSchema =
     ResolutionPath = ResolutionPath
   >
 
+type Customer = AllerRetourSchema.dataContext.``public.customersEntity``
+type EmailConfirmationToken = AllerRetourSchema.dataContext.``public.email_confirmation_tokensEntity``
+
 let ctx = AllerRetourSchema.GetDataContext ()
 let submit = ctx.SubmitUpdates
 let customers = ctx.Public.Customers

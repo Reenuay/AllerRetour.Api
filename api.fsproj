@@ -16,7 +16,6 @@
     <Compile Include="Db.fs" />
     <Compile Include="TwoTrackResult.fs" />
     <Compile Include="AppError.fs" />
-    <Compile Include="Dto.fs" />
     <Compile Include="Input.fs" />
     <Compile Include="Query.fs" />
     <Compile Include="Command.fs" />

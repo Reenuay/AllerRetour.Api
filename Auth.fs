@@ -6,18 +6,16 @@ open System.Security.Claims
 open System.IdentityModel.Tokens.Jwt
 open Microsoft.IdentityModel.Tokens
 
-open Dto
-
 type TokenResult = {
   Token : string
 }
 
 let customerIdClaim = "customerId"
 
-let generateToken customer =
+let generateToken (id: int64) email =
   let claims = [|
-    Claim(customerIdClaim, customer.Id.ToString())
-    Claim(JwtRegisteredClaimNames.Sub, customer.Email)
+    Claim(customerIdClaim, id.ToString())
+    Claim(JwtRegisteredClaimNames.Sub, email)
     Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
   |]
 
