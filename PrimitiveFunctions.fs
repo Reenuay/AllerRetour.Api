@@ -1,4 +1,5 @@
-module AllerRetour
+[<AutoOpen>]
+module AllerRetour.PrimitiveFunctions
 let tee f x =
   f x |> ignore
   x
