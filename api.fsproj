@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <Compile Include="Globals.fs" />
-    <Compile Include="Primitives.fs" />
+    <Compile Include="PrimitiveFunctions.fs" />
     <Compile Include="Generators.fs" />
     <Compile Include="Validators.fs" />
     <Compile Include="Normalizers.fs" />
