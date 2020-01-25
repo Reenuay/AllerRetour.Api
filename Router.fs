@@ -107,9 +107,13 @@ let tryAuthenticate (input: AuthRequest.T) =
     do!  Pbkdf2.verify customer.PasswordHash input.Password
       |> failIfFalse (InvalidPassword input.Email)
 
+    let token, expires
+      = Auth.generateToken customer.Id customer.EmailConfirmed customer.Email
+
     return {
-      Token = Auth.generateToken customer.Id customer.EmailConfirmed customer.Email
+      Token = token
       EmailConfirmed = customer.EmailConfirmed
+      Expires = expires
     }
   }
 
