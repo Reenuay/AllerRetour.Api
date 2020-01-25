@@ -6,17 +6,20 @@ open System.Security.Claims
 open System.IdentityModel.Tokens.Jwt
 open Microsoft.IdentityModel.Tokens
 
-type TokenResult = {
-  Token : string
-}
-
+let mustHaveConfirmedEmailPolicy = "MustHaveConfirmedEmail"
 let customerIdClaim = "customerId"
+let emailConfirmedClaim = "emailConfirmed"
 
-let generateToken (id: int64) email =
+let generateToken (id: int64) (emailConfirmed: bool) email =
   let claims = [|
-    Claim(customerIdClaim, id.ToString())
-    Claim(JwtRegisteredClaimNames.Sub, email)
-    Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+    yield Claim(customerIdClaim, id.ToString())
+    yield Claim(JwtRegisteredClaimNames.Sub, email)
+    yield Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+    yield!
+      if emailConfirmed then
+        [| Claim(emailConfirmedClaim, "confirmed") |]
+      else
+      [||]
   |]
 
   let expires = Nullable(DateTime.UtcNow.AddMinutes(15.0))
@@ -38,8 +41,4 @@ let generateToken (id: int64) email =
       signingCredentials = signingCredentials
     )
 
-  let tokenResult = {
-    Token = JwtSecurityTokenHandler().WriteToken(token)
-  }
-
-  tokenResult
+  JwtSecurityTokenHandler().WriteToken(token)

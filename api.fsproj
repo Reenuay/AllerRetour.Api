@@ -17,6 +17,7 @@
     <Compile Include="TwoTrackResult.fs" />
     <Compile Include="AppError.fs" />
     <Compile Include="Input.fs" />
+    <Compile Include="Output.fs" />
     <Compile Include="Query.fs" />
     <Compile Include="Command.fs" />
     <Compile Include="Auth.fs" />

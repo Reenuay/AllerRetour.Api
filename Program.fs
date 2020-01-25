@@ -7,6 +7,7 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.Hosting
 open Microsoft.AspNetCore.Hosting
 open Microsoft.IdentityModel.Tokens
+open Microsoft.AspNetCore.Authorization
 open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
@@ -71,9 +72,26 @@ let main _ =
     .ConfigureServices(fun _ services ->
       services
         .AddGiraffe()
+        |> ignore
+
+      services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(fun options ->
           options.TokenValidationParameters <- createTokenParams()
+        )
+        |> ignore
+
+      services
+        .AddAuthorization(fun options ->
+           options
+            .AddPolicy(
+              Auth.mustHaveConfirmedEmailPolicy,
+              Action<AuthorizationPolicyBuilder>(
+                fun policy ->
+                  policy.RequireClaim(Auth.emailConfirmedClaim)
+                  |> ignore
+              )
+            )
         )
         |> ignore
 

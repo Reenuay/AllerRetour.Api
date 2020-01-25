@@ -9,12 +9,21 @@ open Giraffe
 
 open TwoTrackResult
 open Input
+open Output
 open Logger
 
 let tryCatchR fFailure f = tryCatch succeed (fFailure >> fail) f
 
-let authorize : HttpHandler =
+let unauthorized = setStatusCode 401 >=> text "Unauthorized"
+
+// For those, who passed registration, but didn't confirm their emails yet
+let authorizeUnconfirmed : HttpHandler =
   requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
+
+ // For fully priveleged users
+let authorizeConfirmed : HttpHandler
+  =   authorizeUnconfirmed
+  >=> authorizeByPolicyName Auth.mustHaveConfirmedEmailPolicy unauthorized
 
 let toLogs = function
   | EmailIsAlreadyRegistered e -> sprintf "Invalid registration attempt: %s" e
@@ -98,7 +107,10 @@ let tryAuthenticate (input: AuthRequest.T) =
     do!  Pbkdf2.verify customer.PasswordHash input.Password
       |> failIfFalse (InvalidPassword input.Email)
 
-    return Auth.generateToken customer.Id customer.Email
+    return {
+      Token = Auth.generateToken customer.Id customer.EmailConfirmed customer.Email
+      EmailConfirmed = customer.EmailConfirmed
+    }
   }
 
 let tryConfirmEmail (input: EmailConfirmRequest.T) =
