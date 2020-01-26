@@ -85,7 +85,7 @@ let sendConfirmEmail (customer: Db.Customer) =
   with
   | exn -> logger.Error(exn.Message)
 
-let tryRegister (input: RegRequest.T) =
+let trySignUp (input: RegRequest.T) =
   result {
     do!  Query.customerByEmail input.Email
       |> Seq.tryExactlyOne
@@ -94,7 +94,7 @@ let tryRegister (input: RegRequest.T) =
     return Command.registerCustomer input
   }
 
-let tryAuthenticate (input: AuthRequest.T) =
+let trySignIn (input: AuthRequest.T) =
   result {
     let! customer
       =  Query.customerByEmail input.Email
@@ -138,23 +138,23 @@ let tryConfirmEmail (input: EmailConfirmRequest.T) =
     return "Email confirmed"
   }
 
-let registrationHandler : HttpHandler
+let signUpHandler : HttpHandler
   =  RegRequest.validate
-  >> bind tryRegister
+  >> bind trySignUp
   >> failureLog
   >> map (tee sendConfirmEmail)
   >> map (fun x -> x.Id)
   >> toHandler
   |> tryBindJson
 
-let authenticationHandler : HttpHandler
+let signInHandler : HttpHandler
   =  AuthRequest.validate
-  >> bind tryAuthenticate
+  >> bind trySignIn
   >> failureLog
   >> toHandler
   |> tryBindJson
 
-let confirmationHandler : HttpHandler
+let confirmEmailHandler : HttpHandler
   =  EmailConfirmRequest.validate
   >> bind tryConfirmEmail
   >> toHandler
@@ -165,11 +165,11 @@ let createApp () : HttpHandler =
     subRoute "/customer" (
       choose [
         POST >=> choose [
-          route "/register" >=> registrationHandler
-          route "/auth"     >=> authenticationHandler
+          route "/signup" >=> signUpHandler
+          route "/signin" >=> signInHandler
         ]
         GET >=> choose [
-          route "/confirm" >=> confirmationHandler
+          route "/confirm" >=> confirmEmailHandler
         ]
         Status.notFoundError "Not found"
       ]
