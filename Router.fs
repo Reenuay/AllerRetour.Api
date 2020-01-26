@@ -14,8 +14,6 @@ open Logger
 
 let tryCatchR fFailure f = tryCatch succeed (fFailure >> fail) f
 
-let unauthorized = setStatusCode 401 >=> text "Unauthorized"
-
 // For those, who passed registration, but didn't confirm their emails yet
 let authorizeUnconfirmed : HttpHandler =
   requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
@@ -23,7 +21,9 @@ let authorizeUnconfirmed : HttpHandler =
  // For fully priveleged users
 let authorizeConfirmed : HttpHandler
   =   authorizeUnconfirmed
-  >=> authorizeByPolicyName Auth.mustHaveConfirmedEmailPolicy unauthorized
+  >=> authorizeByPolicyName
+        Auth.mustHaveConfirmedEmailPolicy
+        (Status.unauthorizedError "Unauthorized")
 
 let toLogs = function
   | EmailIsAlreadyRegistered e -> sprintf "Invalid registration attempt: %s" e
