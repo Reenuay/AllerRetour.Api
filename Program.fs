@@ -11,6 +11,7 @@ open Microsoft.AspNetCore.Authorization
 open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Logging
 open Microsoft.AspNetCore.Authentication.JwtBearer
 
 open Serilog
@@ -113,10 +114,19 @@ let main _ =
             fun ctx appBuilder ->
               let env = ctx.HostingEnvironment.EnvironmentName
 
+              let errorHandler (ex : Exception) (logger : Microsoft.Extensions.Logging.ILogger) =
+                logger.Log(
+                  LogLevel.Error,
+                  sprintf
+                    "An unhandled exception has occurred while executing the request. %s"
+                    ex.Message
+                )
+                clearResponse >=> setStatusCode 500 >=> text "Server error"
+
               (
                 match env with
                 | "Development" -> appBuilder.UseDeveloperExceptionPage()
-                | _             -> appBuilder
+                | _             -> appBuilder.UseGiraffeErrorHandler errorHandler
               )
                 .UseForwardedHeaders()
                 .UseAuthentication()
