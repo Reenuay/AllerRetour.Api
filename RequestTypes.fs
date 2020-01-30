@@ -4,11 +4,13 @@ open Validators
 open Normalizers
 open TwoTrackResult
 
+[<CLIMutable>]
 type SignInRequest = {
   Email: string
   Password: string
 }
 
+[<CLIMutable>]
 type SignUpRequest = {
   FirstName: string
   LastName: string
@@ -16,11 +18,13 @@ type SignUpRequest = {
   Password: string
 }
 
+[<CLIMutable>]
 type ConfirmEmailRequest = {
   Email: string
   Code: string
 }
 
+[<CLIMutable>]
 type CustomerIdentity = {
   Id: int64
   Email: string
