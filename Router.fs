@@ -17,8 +17,6 @@ let tryCatchR fFailure f = tryCatch succeed (fFailure >> fail) f
 
 let toLogs = function
   | EmailIsAlreadyRegistered e -> sprintf "Invalid registration attempt: %s" e
-  | EmailIsNotConfirmed e
-    -> sprintf "Invalid authentication attempt. Email is not confirmed: %s" e
   | CustomerNotFound e
     -> sprintf "Invalid authentication attempt. Email is not registered: %s" e
   | TokenNotFound e
@@ -31,8 +29,8 @@ let toLogs = function
 let failureLog e =
   let level x =
     match x with
-    | EmailIsAlreadyRegistered _ | EmailIsNotConfirmed _
-    | CustomerNotFound _ | InvalidPassword _ | TokenNotFound _ -> logger.Information
+    | EmailIsAlreadyRegistered _ | CustomerNotFound _
+    | InvalidPassword _ | TokenNotFound _ -> logger.Information
     | DbError _ -> logger.Error
     | Validation _ -> logger.Debug
 
@@ -42,7 +40,6 @@ let handleError = function
   | EmailIsAlreadyRegistered _ -> Status.conflictError "Email is already registered"
   | CustomerNotFound _         -> Status.notFoundError "Customer not found"
   | TokenNotFound _            -> Status.notFoundError "Token not found"
-  | EmailIsNotConfirmed _      -> Status.unauthorizedError "Email is not confirmed"
   | InvalidPassword _          -> Status.unauthorizedError "Invalid password"
   | Validation ers             -> Status.validationError ers
   | DbError _                  -> Status.serverError
@@ -110,9 +107,6 @@ let trySignIn (input: SignInRequest) =
       =  Query.customerByEmail input.Email
       |> Seq.tryExactlyOne
       |> failIfNone (CustomerNotFound input.Email)
-
-    do!  customer.EmailConfirmed
-      |> failIfFalse (EmailIsNotConfirmed input.Email)
 
     do!  Pbkdf2.verify customer.PasswordHash input.Password
       |> failIfFalse (InvalidPassword input.Email)
