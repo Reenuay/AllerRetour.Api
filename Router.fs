@@ -1,6 +1,7 @@
 module AllerRetour.Router
 
 open System
+open System.IdentityModel.Tokens.Jwt
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication.JwtBearer
 open FSharp.Control.Tasks.V2.ContextInsensitive
@@ -14,17 +15,27 @@ open Logger
 
 let tryCatchR fFailure f = tryCatch succeed (fFailure >> fail) f
 
+// Helper
+let bindCustomerIdentity (handler: CustomerIdentity -> HttpHandler) : HttpHandler =
+  fun (next: HttpFunc) (ctx: HttpContext) ->
+    let customerIdentity = {
+      Id = ctx.User.FindFirst(Auth.customerIdClaim).Value |> Int64.Parse
+      Email = ctx.User.FindFirst(JwtRegisteredClaimNames.Sub).Value
+    }
+    handler customerIdentity next ctx
 
 // For those, who passed registration, but didn't confirm their emails yet
-let authorizeUnconfirmed : HttpHandler =
+let bindUnconfirmed handler : HttpHandler =
   requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
+  >=> bindCustomerIdentity handler
 
  // For fully priveleged users
-let authorizeConfirmed : HttpHandler
-  =   authorizeUnconfirmed
+let bindConfirmed handler : HttpHandler =
+  requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
   >=> authorizeByPolicyName
         Auth.mustHaveConfirmedEmailPolicy
         (Status.unauthorizedError "Unauthorized")
+  >=> bindCustomerIdentity handler
 
 let toLogs = function
   | EmailIsAlreadyRegistered e -> sprintf "Invalid registration attempt: %s" e

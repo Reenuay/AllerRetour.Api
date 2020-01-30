@@ -8,8 +8,8 @@ open Microsoft.IdentityModel.Tokens
 
 let tokenExpirationTime = 15.0
 let mustHaveConfirmedEmailPolicy = "MustHaveConfirmedEmail"
-let customerIdClaim = "customerId"
-let emailConfirmedClaim = "emailConfirmed"
+let customerIdClaim = "CustomerId"
+let emailConfirmedClaim = "EmailConfirmed"
 
 let generateToken (id: int64) (emailConfirmed: bool) email =
   let claims = [|

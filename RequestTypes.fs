@@ -21,6 +21,11 @@ type ConfirmEmailRequest = {
   Code: string
 }
 
+type CustomerIdentity = {
+  Id: int64
+  Email: string
+}
+
 module private GenericValidators =
   let emailError field = [sprintf "%s has bad email format" field]
   let minLengthError field l
@@ -84,7 +89,7 @@ module SignUpRequest =
   }
 
   let validate
-    =  adapt (nameValidator "First name") (fun r -> r.FirstName)
+    =  adapt (nameValidator "First name") (fun (r: SignUpRequest) -> r.FirstName)
     ++ adapt (nameValidator "Last name") (fun r -> r.LastName)
     ++ adapt (emailValidator "Email") (fun r -> r.Email)
     ++ adapt (passwordValidator "Password") (fun r -> r.Password)
@@ -96,6 +101,6 @@ module ConfirmEmailRequest =
   open GenericValidators
 
   let validate
-    =  adapt (emailValidator "Email") (fun a -> a.Email)
-    ++ adapt (guidValidator "Code") (fun a -> a.Code)
+    =  adapt (emailValidator "Email") (fun (r: ConfirmEmailRequest) -> r.Email)
+    ++ adapt (guidValidator "Code") (fun r ->r.Code)
     >> either succeed (Validation >> fail)
