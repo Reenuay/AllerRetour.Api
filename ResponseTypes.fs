@@ -13,6 +13,6 @@ type ProfileResponse = {
   CardId: string
   FirstName: string
   LastName: string
-  Birthday: DateTime
+  Birthday: DateTime option
   Gender: string
 }

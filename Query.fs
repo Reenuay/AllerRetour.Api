@@ -10,6 +10,13 @@ let customerByEmail email =
     select c
   }
 
+let customerById id =
+  query {
+    for c in customers do
+    where (c.Id = id)
+    select c
+  }
+
 let emailConfirmationToken email token =
   let nowPlusMinute = DateTime.UtcNow.AddMinutes(1.0)
 

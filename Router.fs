@@ -15,28 +15,6 @@ open Logger
 
 let tryCatchR fFailure f = tryCatch succeed (fFailure >> fail) f
 
-// Helper
-let bindCustomerIdentity (handler: CustomerIdentity -> HttpHandler) : HttpHandler =
-  fun (next: HttpFunc) (ctx: HttpContext) ->
-    let customerIdentity = {
-      Id = ctx.User.FindFirst(Auth.customerIdClaim).Value |> Int64.Parse
-      Email = ctx.User.FindFirst(JwtRegisteredClaimNames.Sub).Value
-    }
-    handler customerIdentity next ctx
-
-// For those, who passed registration, but didn't confirm their emails yet
-let bindUnconfirmed handler : HttpHandler =
-  requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
-  >=> bindCustomerIdentity handler
-
- // For fully priveleged users
-let bindConfirmed handler : HttpHandler =
-  requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
-  >=> authorizeByPolicyName
-        Auth.mustHaveConfirmedEmailPolicy
-        (Status.unauthorizedError "Unauthorized")
-  >=> bindCustomerIdentity handler
-
 let toLogs = function
   | EmailIsAlreadyRegistered e -> sprintf "Invalid registration attempt: %s" e
   | EmailIsNotConfirmed e
@@ -68,6 +46,26 @@ let handleError = function
   | InvalidPassword _          -> Status.unauthorizedError "Invalid password"
   | Validation ers             -> Status.validationError ers
   | DbError _                  -> Status.serverError
+
+
+// For those, who passed registration, but didn't confirm their emails yet
+let authorizeDefault : HttpHandler =
+  requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
+
+ // For fully priveleged users
+let authorizeConfirmed : HttpHandler =
+  requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
+  >=> authorizeByPolicyName
+        Auth.mustHaveConfirmedEmailPolicy
+        (Status.unauthorizedError "Unauthorized")
+
+let bindCustomerIdentity (handler: CustomerIdentity -> HttpHandler) : HttpHandler =
+  fun (next: HttpFunc) (ctx: HttpContext) ->
+    let customerIdentity = {
+      Id = ctx.User.FindFirst(Auth.customerIdClaim).Value |> Int64.Parse
+      Email = ctx.User.FindFirst(JwtRegisteredClaimNames.Sub).Value
+    }
+    handler customerIdentity next ctx
 
 let inline tryBindJson (successHandler: ^T -> HttpHandler) : HttpHandler =
   fun (next: HttpFunc) (ctx: HttpContext) ->
@@ -150,6 +148,28 @@ let tryConfirmEmail (input: ConfirmEmailRequest) =
     return "Email confirmed"
   }
 
+let tryGetProfile (identity: CustomerIdentity) =
+  result {
+    let! customer
+      =  Query.customerById identity.Id
+      |> Seq.tryExactlyOne
+      |> failIfNone (CustomerNotFound identity.Email)
+
+    let! profile
+      =  customer.``public.customer_profiles by id``
+      |> Seq.tryExactlyOne
+      |> failIfNone (CustomerNotFound identity.Email)
+
+    return {
+      Email = customer.Email
+      CardId = customer.CardId
+      FirstName = profile.FirstName
+      LastName = profile.LastName
+      Birthday = profile.Birthday
+      Gender = profile.Gender
+    }
+  }
+
 let signUpHandler : HttpHandler
   =  SignUpRequest.validate
   >> bind trySignUp
@@ -172,6 +192,11 @@ let confirmEmailHandler : HttpHandler
   >> toHandler
   |> tryBindQuery
 
+let getProfileHandler : HttpHandler
+  =  tryGetProfile
+  >> toHandler
+  |> bindCustomerIdentity
+
 let createApp () : HttpHandler =
   subRoute "/api" (
     subRoute "/customer" (
@@ -182,6 +207,10 @@ let createApp () : HttpHandler =
         ]
         GET >=> choose [
           route "/confirm" >=> confirmEmailHandler
+
+          authorizeConfirmed >=> choose [
+            route "/profile" >=> getProfileHandler
+          ]
         ]
         Status.notFoundError "Not found"
       ]
