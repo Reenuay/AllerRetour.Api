@@ -8,11 +8,12 @@ open FSharp.Control.Tasks.V2.ContextInsensitive
 open Giraffe
 
 open TwoTrackResult
-open Input
-open Output
+open RequestTypes
+open ResponseTypes
 open Logger
 
 let tryCatchR fFailure f = tryCatch succeed (fFailure >> fail) f
+
 
 // For those, who passed registration, but didn't confirm their emails yet
 let authorizeUnconfirmed : HttpHandler =
@@ -85,7 +86,7 @@ let sendConfirmEmail (customer: Db.Customer) =
   with
   | exn -> logger.Error(exn.Message)
 
-let trySignUp (input: RegRequest.T) =
+let trySignUp (input: SignUpRequest) =
   result {
     do!  Query.customerByEmail input.Email
       |> Seq.tryExactlyOne
@@ -94,7 +95,7 @@ let trySignUp (input: RegRequest.T) =
     return Command.registerCustomer input
   }
 
-let trySignIn (input: AuthRequest.T) =
+let trySignIn (input: SignInRequest) =
   result {
     let! customer
       =  Query.customerByEmail input.Email
@@ -117,7 +118,7 @@ let trySignIn (input: AuthRequest.T) =
     }
   }
 
-let tryConfirmEmail (input: EmailConfirmRequest.T) =
+let tryConfirmEmail (input: ConfirmEmailRequest) =
   result {
     let! customer
       =  Query.customerByEmail input.Email
@@ -139,7 +140,7 @@ let tryConfirmEmail (input: EmailConfirmRequest.T) =
   }
 
 let signUpHandler : HttpHandler
-  =  RegRequest.validate
+  =  SignUpRequest.validate
   >> bind trySignUp
   >> failureLog
   >> map (tee sendConfirmEmail)
@@ -148,14 +149,14 @@ let signUpHandler : HttpHandler
   |> tryBindJson
 
 let signInHandler : HttpHandler
-  =  AuthRequest.validate
+  =  SignInRequest.validate
   >> bind trySignIn
   >> failureLog
   >> toHandler
   |> tryBindJson
 
 let confirmEmailHandler : HttpHandler
-  =  EmailConfirmRequest.validate
+  =  ConfirmEmailRequest.validate
   >> bind tryConfirmEmail
   >> toHandler
   |> tryBindQuery

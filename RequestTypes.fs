@@ -1,8 +1,25 @@
-module AllerRetour.Input
+module AllerRetour.RequestTypes
 
 open Validators
 open Normalizers
 open TwoTrackResult
+
+type SignInRequest = {
+  Email: string
+  Password: string
+}
+
+type SignUpRequest = {
+  FirstName: string
+  LastName: string
+  Email: string
+  Password: string
+}
+
+type ConfirmEmailRequest = {
+  Email: string
+  Code: string
+}
 
 module private GenericValidators =
   let emailError field = [sprintf "%s has bad email format" field]
@@ -48,18 +65,18 @@ module private GenericValidators =
     =  chain isValidGuid (guidError field)
     ++ chain (hasExactLengthOf Guid.length) (exactLengthError field Guid.length)
 
-module RegRequest =
+module SignInRequest =
 
   open GenericValidators
 
-  [<CLIMutable>]
-  type T = {
-    FirstName: string
-    LastName: string
-    Email: string
-    Password: string
-  }
+  let validate
+    =  adapt (emailValidator "Email") (fun (a: SignInRequest) -> a.Email)
+    ++ adapt (passwordValidator "Password") (fun a -> a.Password)
+    >> either succeed (Validation >> fail)
 
+module SignUpRequest =
+
+  open GenericValidators
   let private cleanName r = {
     r with
       FirstName = cleanWhiteSpace r.FirstName
@@ -74,30 +91,9 @@ module RegRequest =
     >> map cleanName
     >> either succeed (Validation >> fail)
 
-module AuthRequest =
+module ConfirmEmailRequest =
 
   open GenericValidators
-
-  [<CLIMutable>]
-  type T = {
-    Email: string
-    Password: string
-  }
-
-  let validate
-    =  adapt (emailValidator "Email") (fun a -> a.Email)
-    ++ adapt (passwordValidator "Password") (fun a -> a.Password)
-    >> either succeed (Validation >> fail)
-
-module EmailConfirmRequest =
-
-  open GenericValidators
-
-  [<CLIMutable>]
-  type T = {
-    Email: string
-    Code: string
-  }
 
   let validate
     =  adapt (emailValidator "Email") (fun a -> a.Email)

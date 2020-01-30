@@ -16,8 +16,8 @@
     <Compile Include="Db.fs" />
     <Compile Include="TwoTrackResult.fs" />
     <Compile Include="AppError.fs" />
-    <Compile Include="Input.fs" />
-    <Compile Include="Output.fs" />
+    <Compile Include="RequestTypes.fs" />
+    <Compile Include="ResponseTypes.fs" />
     <Compile Include="Query.fs" />
     <Compile Include="Command.fs" />
     <Compile Include="Auth.fs" />

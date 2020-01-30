@@ -1,8 +1,8 @@
-module AllerRetour.Output
+module AllerRetour.ResponseTypes
 
 open System
 
-type AuthResponse = {
+type SignInResponse = {
   Token: string
   EmailConfirmed: bool
   Expires: DateTime

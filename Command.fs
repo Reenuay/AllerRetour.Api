@@ -1,7 +1,7 @@
 module AllerRetour.Command
 
 open Db
-open Input
+open RequestTypes
 
 let createConfirmationToken email =
   let guid = Generators.randomGuid ()
@@ -14,7 +14,7 @@ let createConfirmationToken email =
 
   token
 
-let registerCustomer (input: RegRequest.T) =
+let registerCustomer (input: SignUpRequest) =
   let cardId = Generators.randomCardId ()
   let hash   = Pbkdf2.strongHash input.Password
 
