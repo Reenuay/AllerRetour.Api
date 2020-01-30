@@ -8,14 +8,17 @@ open Microsoft.IdentityModel.Tokens
 
 let tokenExpirationTime = 15.0
 let mustHaveConfirmedEmailPolicy = "MustHaveConfirmedEmail"
-let customerIdClaim = "CustomerId"
-let emailConfirmedClaim = "EmailConfirmed"
+
+let customerIdClaim = "AllerRetour.CustomerId"
+let emailClaim = "AllerRetour.Email"
+let emailConfirmedClaim = "AllerRetour.EmailConfirmed"
 
 let generateToken (id: int64) (emailConfirmed: bool) email =
   let claims = [|
-    yield Claim(JwtRegisteredClaimNames.Sub, email)
+    yield Claim(JwtRegisteredClaimNames.Sub, id.ToString())
     yield Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
     yield Claim(customerIdClaim, id.ToString())
+    yield Claim(emailClaim, email)
     yield!
       if emailConfirmed then
         [| Claim(emailConfirmedClaim, "confirmed") |]

@@ -1,7 +1,6 @@
 module AllerRetour.Router
 
 open System
-open System.IdentityModel.Tokens.Jwt
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication.JwtBearer
 open FSharp.Control.Tasks.V2.ContextInsensitive
@@ -60,7 +59,7 @@ let bindCustomerIdentity (handler: CustomerIdentity -> HttpHandler) : HttpHandle
   fun (next: HttpFunc) (ctx: HttpContext) ->
     let customerIdentity = {
       Id = ctx.User.FindFirst(Auth.customerIdClaim).Value |> Int64.Parse
-      Email = ctx.User.FindFirst(JwtRegisteredClaimNames.Sub).Value
+      Email = ctx.User.FindFirst(Auth.emailClaim).Value
     }
     handler customerIdentity next ctx
 

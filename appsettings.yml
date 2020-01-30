@@ -4,8 +4,8 @@ Logger:
   Path: "/var/log/aller_retour/api.log"
 Auth:
   Secret: ""
-  Issuer: "aller-retour.com"
-  Audience: "aller-retour.com"
+  Issuer: "https://aller-retour.com"
+  Audience: "https://aller-retour.com"
 Mail:
   Host: "mail.aller-retour.com"
   Address: "noreply@aller-retour.com"
