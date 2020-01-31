@@ -133,9 +133,14 @@ let tryConfirmEmail (input: ConfirmEmailRequest) =
 
     do!
       try
-        Command.confirmEmail customer token |> succeed
+        (customer, token)
+        |> Command.confirmEmail
+        |> succeed
       with
-      | e -> DbError e.Message |> fail
+      | e ->
+        e.Message
+        |> DbError
+        |> fail
 
     return "Email confirmed"
   }

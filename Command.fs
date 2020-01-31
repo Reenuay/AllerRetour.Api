@@ -34,7 +34,7 @@ let registerCustomer (input: SignUpRequest) =
 
   customer
 
-let confirmEmail (customer: Customer) (token: EmailConfirmationToken) =
+let confirmEmail (customer: Customer, token: EmailConfirmationToken) =
   customer.EmailConfirmed <- true
   token.IsUsed <- true
   submit()
