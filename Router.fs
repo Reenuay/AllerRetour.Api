@@ -91,15 +91,6 @@ let sendConfirmEmail (customer: Db.Customer) =
   with
   | exn -> logger.Error(exn.Message)
 
-let trySignUp (input: SignUpRequest) =
-  result {
-    do!  Query.customerByEmail input.Email
-      |> Seq.tryExactlyOne
-      |> failIfSome (EmailIsAlreadyRegistered input.Email)
-
-    return Command.registerCustomer input
-  }
-
 let trySignIn (input: SignInRequest) =
   result {
     let! customer
@@ -118,6 +109,15 @@ let trySignIn (input: SignInRequest) =
       EmailConfirmed = customer.EmailConfirmed
       Expires = expires
     }
+  }
+
+let trySignUp (input: SignUpRequest) =
+  result {
+    do!  Query.customerByEmail input.Email
+      |> Seq.tryExactlyOne
+      |> failIfSome (EmailIsAlreadyRegistered input.Email)
+
+    return Command.registerCustomer input
   }
 
 let tryConfirmEmail (input: ConfirmEmailRequest) =
@@ -163,19 +163,19 @@ let tryGetProfile (identity: CustomerIdentity) =
     }
   }
 
+let signInHandler : HttpHandler
+  =  SignInRequest.validate
+  >> bind trySignIn
+  >> failureLog
+  >> toHandler
+  |> tryBindJson
+
 let signUpHandler : HttpHandler
   =  SignUpRequest.validate
   >> bind trySignUp
   >> failureLog
   >> map (tee sendConfirmEmail)
   >> map (fun x -> x.Id)
-  >> toHandler
-  |> tryBindJson
-
-let signInHandler : HttpHandler
-  =  SignInRequest.validate
-  >> bind trySignIn
-  >> failureLog
   >> toHandler
   |> tryBindJson
 
@@ -195,8 +195,8 @@ let createApp () : HttpHandler =
     subRoute "/customer" (
       choose [
         POST >=> choose [
-          route "/signup" >=> signUpHandler
           route "/signin" >=> signInHandler
+          route "/signup" >=> signUpHandler
         ]
         GET >=> choose [
           route "/confirm" >=> confirmEmailHandler
