@@ -9,7 +9,7 @@ type Mail = {
 }
 
 let send mail =
-  use msg    = new MailMessage(Globals.Mail.Address, mail.To, mail.Subject, mail.Body)
+  use msg = new MailMessage(Globals.Mail.Address, mail.To, mail.Subject, mail.Body)
   msg.IsBodyHtml <- true
 
   use client = new SmtpClient(Globals.Mail.Host)

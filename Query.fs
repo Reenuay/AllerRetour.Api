@@ -18,14 +18,14 @@ let customerById id =
   }
 
 let emailConfirmationToken email token =
-  let nowPlusMinute = DateTime.UtcNow.AddMinutes(1.0)
+  let now = DateTime.UtcNow
 
   query {
     for t in emailConfirmationTokens do
     where (
       t.Email = email
       && t.Token = token
-      && t.DateExpires > nowPlusMinute
+      && t.DateExpires > now
       && t.IsUsed = false
     )
     select t

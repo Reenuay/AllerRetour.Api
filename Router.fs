@@ -43,7 +43,6 @@ let handleError = function
   | Validation ers             -> Status.validationError ers
   | DbError _                  -> Status.serverError
 
-
 // For those, who passed registration, but didn't confirm their emails yet
 let authorizeDefault : HttpHandler =
   requiresAuthentication (challenge JwtBearerDefaults.AuthenticationScheme)
@@ -195,11 +194,11 @@ let createApp () : HttpHandler =
     subRoute "/customer" (
       choose [
         POST >=> choose [
-          route "/signin" >=> signInHandler
-          route "/signup" >=> signUpHandler
+          route "/signin" >=> signInHandler // TO DO: Protect from DOS attacks
+          route "/signup" >=> signUpHandler // TO DO: Protect from DOS attacks
         ]
         GET >=> choose [
-          route "/confirm" >=> confirmEmailHandler
+          route "/confirm" >=> confirmEmailHandler // TO DO: Protect from DOS attacks
 
           authorizeConfirmed >=> choose [
             route "/profile" >=> getProfileHandler
