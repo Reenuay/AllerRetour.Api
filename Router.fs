@@ -124,7 +124,7 @@ let tryConfirmEmail (input: ConfirmEmailRequest) =
     let! customer
       =  Query.customerByEmail input.Email
       |> Seq.tryExactlyOne
-      |> failIfNone (CustomerNotFound input.Email)
+      |> failIfNone (TokenNotFound input.Email)
 
     let! token
       =  Query.emailConfirmationToken input.Email input.Code
