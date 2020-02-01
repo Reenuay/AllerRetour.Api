@@ -17,16 +17,22 @@ let customerById id =
     select c
   }
 
-let emailConfirmationToken email token =
+let emailConfirmationTokenByEmail email =
   let now = DateTime.UtcNow
 
   query {
     for t in emailConfirmationTokens do
     where (
       t.Email = email
-      && t.Token = token
       && t.DateExpires > now
       && t.IsUsed = false
     )
+    select t
+  }
+
+let emailConfirmationToken email token =
+  query {
+    for t in emailConfirmationTokenByEmail email do
+    where (t.Token = token)
     select t
   }

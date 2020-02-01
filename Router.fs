@@ -83,10 +83,9 @@ let toHandler x
   |> ignore2
   |> warbler
 
-let sendConfirmEmail (customer: Db.Customer) =
+let sendConfirmEmail (token: Db.EmailConfirmationToken) =
   try
-    let token = Command.createConfirmationToken customer.Email
-    Mail.sendConfirm customer.Email token.Token
+    Mail.sendConfirm token.Email token.Token
   with
   | exn -> logger.Error(exn.Message)
 
@@ -116,7 +115,9 @@ let trySignUp (input: SignUpRequest) =
       |> Seq.tryExactlyOne
       |> failIfSome (EmailIsAlreadyRegistered input.Email)
 
-    return Command.registerCustomer input
+    let customer = Command.registerCustomer input
+
+    return Command.createConfirmationToken customer.Email
   }
 
 let tryConfirmEmail (input: ConfirmEmailRequest) =
@@ -169,17 +170,13 @@ let tryGetProfile (identity: CustomerIdentity) =
 
 let tryResendConfirmEmail (identity: CustomerIdentity) =
   result {
-    let! customer =
-      query {
-        for c in Query.customerById identity.Id do
-        where (c.EmailConfirmed = false)
-        select c
-      }
+    let! token
+      =  Query.emailConfirmationTokenByEmail identity.Email
       |> Seq.tryExactlyOne
       // TO DO: Return that user is already confirmed his email
-      |> failIfNone (CustomerNotFound identity.Email)
+      |> failIfNone (TokenNotFound identity.Email)
 
-    return customer
+    return token
   }
 
 let signInHandler : HttpHandler
@@ -194,7 +191,7 @@ let signUpHandler : HttpHandler
   >> bind trySignUp
   >> failureLog
   >> map (tee sendConfirmEmail)
-  >> map (fun x -> x.Id)
+  >> map (ignore2 "Ok")
   >> toHandler
   |> tryBindJson
 
@@ -211,6 +208,8 @@ let getProfileHandler : HttpHandler
 
 let resendConfirmEmail : HttpHandler
   =  tryResendConfirmEmail
+  >> map (tee sendConfirmEmail)
+  >> map (ignore2 "Ok")
   >> toHandler
   |> bindCustomerIdentity
 

@@ -1,6 +1,5 @@
 module AllerRetour.Validators
 
-open System
 open System.Net.Mail
 open System.Text.RegularExpressions
 
@@ -22,7 +21,3 @@ let containsWords words s =
     "(" + (List.reduce (fun a b -> a + "|" + b) words) + ")",
     RegexOptions.IgnoreCase
   )
-
-let isValidGuid (s : string) =
-  let mutable x = Guid.Empty
-  Guid.TryParse(s, &x)

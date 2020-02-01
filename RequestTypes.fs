@@ -40,7 +40,6 @@ module private GenericValidators =
     = [sprintf "%s must be exactly %i characters long" field l]
   let restrictedWordsError field
     = [sprintf "%s is not allowed to contain any part of application name" field]
-  let guidError field = [sprintf "%s has bad format" field]
 
   module private Email =
     let max = 100
@@ -69,10 +68,6 @@ module private GenericValidators =
   let nameValidator field
     =  chain (hasMinLengthOf Name.min) (minLengthError field Name.min)
     ++ chain (hasMaxLengthOf Name.max) (maxLengthError field Name.max)
-
-  let guidValidator field
-    =  chain isValidGuid (guidError field)
-    ++ chain (hasExactLengthOf Guid.length) (exactLengthError field Guid.length)
 
 module SignInRequest =
 
@@ -106,5 +101,4 @@ module ConfirmEmailRequest =
 
   let validate
     =  adapt (emailValidator "Email") (fun (r: ConfirmEmailRequest) -> r.Email)
-    ++ adapt (guidValidator "Code") (fun r ->r.Code)
     >> either succeed (Validation >> fail)
