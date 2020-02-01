@@ -167,6 +167,21 @@ let tryGetProfile (identity: CustomerIdentity) =
     }
   }
 
+let tryResendConfirmEmail (identity: CustomerIdentity) =
+  result {
+    let! customer =
+      query {
+        for c in Query.customerById identity.Id do
+        where (c.EmailConfirmed = false)
+        select c
+      }
+      |> Seq.tryExactlyOne
+      // TO DO: Return that user is already confirmed his email
+      |> failIfNone (CustomerNotFound identity.Email)
+
+    return customer
+  }
+
 let signInHandler : HttpHandler
   =  SignInRequest.validate
   >> bind trySignIn
@@ -194,6 +209,11 @@ let getProfileHandler : HttpHandler
   >> toHandler
   |> bindCustomerIdentity
 
+let resendConfirmEmail : HttpHandler
+  =  tryResendConfirmEmail
+  >> toHandler
+  |> bindCustomerIdentity
+
 let createApp () : HttpHandler =
   subRoute "/api" (
     subRoute "/customer" (
@@ -201,13 +221,11 @@ let createApp () : HttpHandler =
         POST >=> choose [
           route "/signin" >=> signInHandler // TO DO: Protect from DOS attacks
           route "/signup" >=> signUpHandler // TO DO: Protect from DOS attacks
+          route "/resend" >=> authorizeDefault >=> resendConfirmEmail
         ]
         GET >=> choose [
           route "/confirm" >=> confirmEmailHandler // TO DO: Protect from DOS attacks
-
-          authorizeConfirmed >=> choose [
-            route "/profile" >=> getProfileHandler
-          ]
+          route "/profile" >=> authorizeConfirmed >=> getProfileHandler
         ]
         Status.notFoundError "Not found"
       ]
