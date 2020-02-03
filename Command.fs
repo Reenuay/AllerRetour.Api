@@ -4,15 +4,15 @@ open Db
 open RequestTypes
 
 let createConfirmationToken email =
-  let guid = Generators.randomGuid ()
+  let tokenString = Generators.randomGuid ()
 
   let token = emailConfirmationTokens.Create ()
   token.Email <- email
-  token.Token <- guid
+  token.TokenHash <- Pbkdf2.strongHash tokenString
 
   submit ()
 
-  token
+  tokenString
 
 let registerCustomer (input: SignUpRequest) =
   let cardId = Generators.randomCardId ()
@@ -36,5 +36,5 @@ let registerCustomer (input: SignUpRequest) =
 
 let confirmEmail (customer: Customer, token: EmailConfirmationToken) =
   customer.EmailConfirmed <- true
-  token.IsUsed <- true
+  token.Delete ()
   submit()

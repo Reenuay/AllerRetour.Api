@@ -1,5 +1,6 @@
 namespace AllerRetour
 
+// Rework error handling
 type AppError =
   // Generic errors
   | Validation of string list

@@ -1,16 +1,15 @@
 module AllerRetour.Router
 
-open System
-open Microsoft.AspNetCore.Http
-open Microsoft.AspNetCore.Authentication.JwtBearer
 open FSharp.Control.Tasks.V2.ContextInsensitive
-
+open FSharp.Data.Sql
 open Giraffe
-
-open TwoTrackResult
+open Logger
+open Microsoft.AspNetCore.Authentication.JwtBearer
+open Microsoft.AspNetCore.Http
 open RequestTypes
 open ResponseTypes
-open Logger
+open System
+open TwoTrackResult
 
 let tryCatchR fFailure f = tryCatch succeed (fFailure >> fail) f
 
@@ -83,9 +82,9 @@ let toHandler x
   |> ignore2
   |> warbler
 
-let sendConfirmEmail (token: Db.EmailConfirmationToken) =
+let sendConfirmEmail (email, token) =
   try
-    Mail.sendConfirm token.Email token.Token
+    Mail.sendConfirm email token
   with
   | exn -> logger.Error(exn.Message)
 
@@ -117,7 +116,7 @@ let trySignUp (input: SignUpRequest) =
 
     let customer = Command.registerCustomer input
 
-    return Command.createConfirmationToken customer.Email
+    return customer.Email, Command.createConfirmationToken customer.Email
   }
 
 let tryConfirmEmail (input: ConfirmEmailRequest) =
@@ -128,9 +127,12 @@ let tryConfirmEmail (input: ConfirmEmailRequest) =
       |> failIfNone (TokenNotFound input.Email)
 
     let! token
-      =  Query.emailConfirmationToken input.Email input.Code
+      =  Query.emailConfirmationToken input.Email
       |> Seq.tryExactlyOne
       |> failIfNone (TokenNotFound input.Email)
+
+    do!  Pbkdf2.verify token.TokenHash input.Code
+      |> failIfFalse (TokenNotFound input.Email)
 
     do!
       try
@@ -170,13 +172,23 @@ let tryGetProfile (identity: CustomerIdentity) =
 
 let tryResendConfirmEmail (identity: CustomerIdentity) =
   result {
-    let! token
-      =  Query.emailConfirmationTokenByEmail identity.Email
+    let! customer =
+      query {
+        for c in Query.customerById identity.Id do
+        where (c.EmailConfirmed = false)
+        select c
+      }
       |> Seq.tryExactlyOne
       // TO DO: Return that user is already confirmed his email
-      |> failIfNone (TokenNotFound identity.Email)
+      |> failIfNone (CustomerNotFound identity.Email)
 
-    return token
+    customer.Email
+    |> Query.emailConfirmationToken
+    |> Seq.``delete all items from single table``
+    |> Async.RunSynchronously
+    |> ignore
+
+    return customer.Email, Command.createConfirmationToken customer.Email
   }
 
 let signInHandler : HttpHandler
@@ -206,7 +218,7 @@ let getProfileHandler : HttpHandler
   >> toHandler
   |> bindCustomerIdentity
 
-let resendConfirmEmail : HttpHandler
+let resendConfirmEmailHandler : HttpHandler
   =  tryResendConfirmEmail
   >> map (tee sendConfirmEmail)
   >> map (ignore2 "Ok")
@@ -220,7 +232,7 @@ let createApp () : HttpHandler =
         POST >=> choose [
           route "/signin" >=> signInHandler // TO DO: Protect from DOS attacks
           route "/signup" >=> signUpHandler // TO DO: Protect from DOS attacks
-          route "/resend" >=> authorizeDefault >=> resendConfirmEmail
+          route "/resend" >=> authorizeDefault >=> resendConfirmEmailHandler
         ]
         GET >=> choose [
           route "/confirm" >=> confirmEmailHandler // TO DO: Protect from DOS attacks

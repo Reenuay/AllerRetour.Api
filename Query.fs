@@ -17,7 +17,7 @@ let customerById id =
     select c
   }
 
-let emailConfirmationTokenByEmail email =
+let emailConfirmationToken email =
   let now = DateTime.UtcNow
 
   query {
@@ -25,14 +25,6 @@ let emailConfirmationTokenByEmail email =
     where (
       t.Email = email
       && t.DateExpires > now
-      && t.IsUsed = false
     )
-    select t
-  }
-
-let emailConfirmationToken email token =
-  query {
-    for t in emailConfirmationTokenByEmail email do
-    where (t.Token = token)
     select t
   }
