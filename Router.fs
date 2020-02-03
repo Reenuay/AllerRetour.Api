@@ -190,6 +190,10 @@ let tryChangeEmail (identity: CustomerIdentity) (request: ChangeEmailRequest) =
     do!  customer.Email <> request.NewEmail
       |> failIfFalse (Validation ["Old value is used. No need for changes."])
 
+    do!  Query.customerByEmail request.NewEmail
+      |> Seq.tryExactlyOne
+      |> failIfSome (EmailIsAlreadyRegistered request.NewEmail)
+
     let oldEmail = customer.Email
 
     Command.changeEmail customer request.NewEmail
