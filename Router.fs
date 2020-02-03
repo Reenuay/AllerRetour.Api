@@ -1,7 +1,6 @@
 module AllerRetour.Router
 
 open FSharp.Control.Tasks.V2.ContextInsensitive
-open FSharp.Data.Sql
 open Giraffe
 open Logger
 open Microsoft.AspNetCore.Authentication.JwtBearer
@@ -88,15 +87,15 @@ let sendConfirmEmail (email, token) =
   with
   | exn -> logger.Error(exn.Message)
 
-let trySignIn (input: SignInRequest) =
+let trySignIn (request: SignInRequest) =
   result {
     let! customer
-      =  Query.customerByEmail input.Email
+      =  Query.customerByEmail request.Email
       |> Seq.tryExactlyOne
-      |> failIfNone (CustomerNotFound input.Email)
+      |> failIfNone (CustomerNotFound request.Email)
 
-    do!  Pbkdf2.verify customer.PasswordHash input.Password
-      |> failIfFalse (InvalidPassword input.Email)
+    do!  Pbkdf2.verify customer.PasswordHash request.Password
+      |> failIfFalse (InvalidPassword request.Email)
 
     let token, expires
       = Auth.generateToken customer.Id customer.EmailConfirmed customer.Email
@@ -108,42 +107,33 @@ let trySignIn (input: SignInRequest) =
     }
   }
 
-let trySignUp (input: SignUpRequest) =
+let trySignUp (request: SignUpRequest) =
   result {
-    do!  Query.customerByEmail input.Email
+    do!  Query.customerByEmail request.Email
       |> Seq.tryExactlyOne
-      |> failIfSome (EmailIsAlreadyRegistered input.Email)
+      |> failIfSome (EmailIsAlreadyRegistered request.Email)
 
-    let customer = Command.registerCustomer input
+    let customer = Command.registerCustomer request
 
     return customer.Email, Command.createConfirmationToken customer.Email
   }
 
-let tryConfirmEmail (input: ConfirmEmailRequest) =
+let tryConfirmEmail (request: ConfirmEmailRequest) =
   result {
     let! customer
-      =  Query.customerByEmail input.Email
+      =  Query.customerByEmail request.Email
       |> Seq.tryExactlyOne
-      |> failIfNone (TokenNotFound input.Email)
+      |> failIfNone (TokenNotFound request.Email)
 
     let! token
-      =  Query.emailConfirmationToken input.Email
+      =  Query.emailConfirmationToken request.Email
       |> Seq.tryExactlyOne
-      |> failIfNone (TokenNotFound input.Email)
+      |> failIfNone (TokenNotFound request.Email)
 
-    do!  Pbkdf2.verify token.TokenHash input.Token
-      |> failIfFalse (TokenNotFound input.Email)
+    do!  Pbkdf2.verify token.TokenHash request.Token
+      |> failIfFalse (TokenNotFound request.Email)
 
-    do!
-      try
-        (customer, token)
-        |> Command.confirmEmail
-        |> succeed
-      with
-      | e ->
-        e.Message
-        |> DbError
-        |> fail
+    Command.confirmEmail customer token
 
     return "Email confirmed"
   }
@@ -182,13 +172,31 @@ let tryResendConfirmEmail (identity: CustomerIdentity) =
       // TO DO: Return that user is already confirmed his email
       |> failIfNone (CustomerNotFound identity.Email)
 
-    email
-    |> Query.emailConfirmationToken
-    |> Seq.``delete all items from single table``
-    |> Async.RunSynchronously
-    |> ignore
+    Command.deleteAllTokensOf email
 
     return email, Command.createConfirmationToken email
+  }
+
+let tryChangeEmail (identity: CustomerIdentity) (request: ChangeEmailRequest) =
+  result {
+    let! customer
+      =  Query.customerById identity.Id
+      |> Seq.tryExactlyOne
+      |> failIfNone (CustomerNotFound identity.Email)
+
+    do!  Pbkdf2.verify customer.PasswordHash request.Password
+      |> failIfFalse (InvalidPassword customer.Email)
+
+    do!  customer.Email <> request.NewEmail
+      |> failIfFalse (Validation ["Old value is used. No need for changes."])
+
+    let oldEmail = customer.Email
+
+    Command.changeEmail customer request.NewEmail
+
+    Command.deleteAllTokensOf oldEmail
+
+    return customer.Email, Command.createConfirmationToken customer.Email
   }
 
 let signInHandler : HttpHandler
@@ -225,6 +233,16 @@ let resendConfirmEmailHandler : HttpHandler
   >> toHandler
   |> bindCustomerIdentity
 
+let changeEmailHandler : HttpHandler
+  = bindCustomerIdentity
+      (fun id ->
+        ChangeEmailRequest.validate
+        >> bind (tryChangeEmail id)
+        >> map (tee sendConfirmEmail)
+        >> map (ignore2 "Ok")
+        >> toHandler
+        |> tryBindJson)
+
 let createApp () : HttpHandler =
   subRoute "/api" (
     subRoute "/customer" (
@@ -232,7 +250,11 @@ let createApp () : HttpHandler =
         POST >=> choose [
           route "/signin" >=> signInHandler // TO DO: Protect from DOS attacks
           route "/signup" >=> signUpHandler // TO DO: Protect from DOS attacks
-          route "/resend" >=> authorizeDefault >=> resendConfirmEmailHandler
+
+          authorizeDefault >=> choose [
+            route "/resend"      >=> resendConfirmEmailHandler
+            route "/changeEmail" >=> changeEmailHandler
+          ]
         ]
         GET >=> choose [
           route "/confirm" >=> confirmEmailHandler // TO DO: Protect from DOS attacks

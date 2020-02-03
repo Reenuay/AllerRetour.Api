@@ -25,6 +25,12 @@ type ConfirmEmailRequest = {
 }
 
 [<CLIMutable>]
+type ChangeEmailRequest = {
+  NewEmail: string
+  Password: string
+}
+
+[<CLIMutable>]
 type CustomerIdentity = {
   Id: int64
   Email: string
@@ -74,8 +80,8 @@ module SignInRequest =
   open GenericValidators
 
   let validate
-    =  adapt (emailValidator "Email") (fun (a: SignInRequest) -> a.Email)
-    ++ adapt (passwordValidator "Password") (fun a -> a.Password)
+    =  adapt (emailValidator "Email") (fun (r: SignInRequest) -> r.Email)
+    ++ adapt (passwordValidator "Password") (fun r -> r.Password)
     >> either succeed (Validation >> fail)
 
 module SignUpRequest =
@@ -101,4 +107,13 @@ module ConfirmEmailRequest =
 
   let validate
     =  adapt (emailValidator "Email") (fun (r: ConfirmEmailRequest) -> r.Email)
+    >> either succeed (Validation >> fail)
+
+module ChangeEmailRequest =
+
+  open GenericValidators
+
+  let validate
+    =  adapt (emailValidator "New email") (fun r -> r.NewEmail)
+    ++ adapt (passwordValidator "Password") (fun r -> r.Password)
     >> either succeed (Validation >> fail)

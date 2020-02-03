@@ -1,5 +1,6 @@
 module AllerRetour.Command
 
+open FSharp.Data.Sql
 open Db
 open RequestTypes
 
@@ -7,7 +8,7 @@ let createConfirmationToken email =
   let tokenString = Generators.randomGuid ()
 
   let token = emailConfirmationTokens.Create ()
-  token.Email <- email
+  token.Email     <- email
   token.TokenHash <- Pbkdf2.strongHash tokenString
 
   submit ()
@@ -34,7 +35,22 @@ let registerCustomer (input: SignUpRequest) =
 
   customer
 
-let confirmEmail (customer: Customer, token: EmailConfirmationToken) =
+let confirmEmail (customer: Customer) (token: EmailConfirmationToken) =
   customer.EmailConfirmed <- true
   token.Delete ()
+
   submit()
+
+let changeEmail  (customer: Customer) newEmail =
+  customer.Email          <- newEmail
+  customer.EmailConfirmed <- false
+
+  submit()
+
+
+let deleteAllTokensOf email =
+  email
+  |> Query.emailConfirmationToken
+  |> Seq.``delete all items from single table``
+  |> Async.RunSynchronously
+  |> ignore
