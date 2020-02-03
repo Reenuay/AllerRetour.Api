@@ -21,7 +21,7 @@ type SignUpRequest = {
 [<CLIMutable>]
 type ConfirmEmailRequest = {
   Email: string
-  Code: string
+  Token: string
 }
 
 [<CLIMutable>]

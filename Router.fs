@@ -131,7 +131,7 @@ let tryConfirmEmail (input: ConfirmEmailRequest) =
       |> Seq.tryExactlyOne
       |> failIfNone (TokenNotFound input.Email)
 
-    do!  Pbkdf2.verify token.TokenHash input.Code
+    do!  Pbkdf2.verify token.TokenHash input.Token
       |> failIfFalse (TokenNotFound input.Email)
 
     do!
@@ -172,23 +172,23 @@ let tryGetProfile (identity: CustomerIdentity) =
 
 let tryResendConfirmEmail (identity: CustomerIdentity) =
   result {
-    let! customer =
+    let! email =
       query {
         for c in Query.customerById identity.Id do
-        where (c.EmailConfirmed = false)
-        select c
+        where (c.EmailConfirmed = false) // Check if '= false' is redundant
+        select c.Email
       }
       |> Seq.tryExactlyOne
       // TO DO: Return that user is already confirmed his email
       |> failIfNone (CustomerNotFound identity.Email)
 
-    customer.Email
+    email
     |> Query.emailConfirmationToken
     |> Seq.``delete all items from single table``
     |> Async.RunSynchronously
     |> ignore
 
-    return customer.Email, Command.createConfirmationToken customer.Email
+    return email, Command.createConfirmationToken email
   }
 
 let signInHandler : HttpHandler
