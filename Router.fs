@@ -271,19 +271,20 @@ let createApp () : HttpHandler =
   subRoute "/api" (
     subRoute "/customer" (
       choose [
-        POST >=> choose [
-          route "/signin" >=> signInHandler // TO DO: Protect from DOS attacks
-          route "/signup" >=> signUpHandler // TO DO: Protect from DOS attacks
+        route "/signin" >=> POST >=> signInHandler // TO DO: Protect from DOS attacks
+        route "/signup" >=> POST >=> signUpHandler // TO DO: Protect from DOS attacks
+        route "/email/confirm" >=> GET >=> confirmEmailHandler // TO DO: Protect from DOS attacks
 
-          authorizeDefault >=> choose [
-            route "/resend"      >=> resendConfirmEmailHandler
-            route "/changeEmail" >=> changeEmailHandler
-          ]
+        authorizeDefault >=> choose [
+          route "/email/resend" >=> POST >=> resendConfirmEmailHandler
+          route "/email/change" >=> POST >=> changeEmailHandler
         ]
-        GET >=> choose [
-          route "/confirm" >=> confirmEmailHandler // TO DO: Protect from DOS attacks
-          route "/profile" >=> authorizeConfirmed >=> getProfileHandler
+
+        authorizeConfirmed >=> route "/profile" >=> choose [
+          GET >=> getProfileHandler
+          PUT >=> updateProfileHanlder
         ]
+
         Status.notFoundError "Not found"
       ]
     )
