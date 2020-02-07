@@ -26,6 +26,6 @@ let sendConfirm address code =
       This message was send to you from Aller Retour service because your email address
       was used for registration. Use the link below to confirm your email.
       If you didn't do that just ignore this message.
-      <a href="%s/api/customer/email/confirm?email=%s&code=%s" target="_blank">Confirm Email</a>
+      <a href="%s/api/customer/email/confirm?email=%s&token=%s" target="_blank">Confirm Email</a>
     """ Globals.Server.Host address code
   }
