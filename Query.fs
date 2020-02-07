@@ -16,14 +16,6 @@ let customerById id =
     where (c.Id = id)
     select c
   }
-
-let profileByCustomerId id =
-  query {
-    for p in customerProfiles do
-    where (p.CustomerId = id)
-    select p
-  }
-
 let emailConfirmationToken email =
   let now = DateTime.UtcNow
 

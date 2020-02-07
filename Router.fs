@@ -87,6 +87,8 @@ let sendConfirmEmail (email, token) =
   with
   | exn -> logger.Error(exn.Message)
 
+let OK = "Ok"
+
 let trySignIn (request: SignInRequest) =
   result {
     let! customer
@@ -135,7 +137,7 @@ let tryConfirmEmail (request: ConfirmEmailRequest) =
 
     Command.confirmEmail customer token
 
-    return "Email confirmed"
+    return OK
   }
 
 let tryGetProfile (identity: CustomerIdentity) =
@@ -179,14 +181,26 @@ let tryResendConfirmEmail (identity: CustomerIdentity) =
 
 let tryUpdateProfile (identity: CustomerIdentity) (request: UpdateProfileRequest) =
   result {
+    let! customer
+      =  Query.customerById identity.Id
+      |> Seq.tryExactlyOne
+      |> failIfNone (CustomerNotFound identity.Email)
+
     let! profile
-      =  Query.profileByCustomerId identity.Id
+      =  customer.``public.customer_profiles by id``
       |> Seq.tryExactlyOne
       |> failIfNone (CustomerNotFound identity.Email)
 
     Command.updateProfile profile request
 
-    return "Ok"
+    return {
+      Email = customer.Email
+      CardId = customer.CardId
+      FirstName = profile.FirstName
+      LastName = profile.LastName
+      Birthday = profile.Birthday
+      Gender = profile.Gender
+    }
   }
 
 let tryChangeEmail (identity: CustomerIdentity) (request: ChangeEmailRequest) =
@@ -227,7 +241,7 @@ let signUpHandler : HttpHandler
   >> bind trySignUp
   >> failureLog
   >> map (tee sendConfirmEmail)
-  >> map (ignore2 "Ok")
+  >> map (ignore2 OK)
   >> toHandler
   |> tryBindJson
 
@@ -245,7 +259,7 @@ let getProfileHandler : HttpHandler
 let resendConfirmEmailHandler : HttpHandler
   =  tryResendConfirmEmail
   >> map (tee sendConfirmEmail)
-  >> map (ignore2 "Ok")
+  >> map (ignore2 OK)
   >> toHandler
   |> bindCustomerIdentity
 
@@ -263,7 +277,7 @@ let changeEmailHandler : HttpHandler
         ChangeEmailRequest.validate
         >> bind (tryChangeEmail id)
         >> map (tee sendConfirmEmail)
-        >> map (ignore2 "Ok")
+        >> map (ignore2 OK)
         >> toHandler
         |> tryBindJson)
 
