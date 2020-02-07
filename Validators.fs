@@ -1,5 +1,6 @@
 module AllerRetour.Validators
 
+open System
 open System.Net.Mail
 open System.Text.RegularExpressions
 
@@ -21,3 +22,7 @@ let containsWords words s =
     "(" + (List.reduce (fun a b -> a + "|" + b) words) + ")",
     RegexOptions.IgnoreCase
   )
+
+let isNot120YearsAgo = (<=) (DateTime.UtcNow.AddYears(-120))
+
+let isAtLeast18YearsAgo = (>) (DateTime.UtcNow.AddYears(-18))

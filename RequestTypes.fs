@@ -1,5 +1,6 @@
 module AllerRetour.RequestTypes
 
+open System
 open Validators
 open Normalizers
 open TwoTrackResult
@@ -25,6 +26,14 @@ type ConfirmEmailRequest = {
 }
 
 [<CLIMutable>]
+type UpdateProfileRequest = {
+  FirstName: string
+  LastName: string
+  Birthday: DateTime option
+  Gender: string
+}
+
+[<CLIMutable>]
 type ChangeEmailRequest = {
   NewEmail: string
   Password: string
@@ -46,34 +55,47 @@ module private GenericValidators =
     = [sprintf "%s must be exactly %i characters long" field l]
   let restrictedWordsError field
     = [sprintf "%s is not allowed to contain any part of application name" field]
+  let isNot120YearsAgoError =
+    ["Birthday must be maximum 120 years ago"]
+  let isAtLeast18YearsAgoError =
+    ["You must be at least 18 years old"]
 
-  module private Email =
+  let emailValidator field =
     let max = 100
 
-  module private Pass =
+    chain isValidEmail (emailError field)
+    ++ chain (hasMaxLengthOf max) (maxLengthError field max)
+
+  let passwordValidator field =
     let min = 8
     let max = 100
     let words = ["aller"; "retour"]
 
-  module private Name =
+    chain (hasMinLengthOf min) (minLengthError field min)
+    ++ chain (hasMaxLengthOf max) (maxLengthError field max)
+    ++ chain (containsWords words >> not) (restrictedWordsError field)
+
+  let nameValidator field =
     let min = 1
     let max = 100
 
-  module private Guid =
-    let length = 36
+    chain (hasMinLengthOf min) (minLengthError field min)
+    ++ chain (hasMaxLengthOf max) (maxLengthError field max)
 
-  let emailValidator field
-    =  chain isValidEmail (emailError field)
-    ++ chain (hasMaxLengthOf Email.max) (maxLengthError field Email.max)
+  let birthdayValidator = function
+  | Some b ->
+    b
+    |> (chain isNot120YearsAgo isNot120YearsAgoError
+    ++ chain isAtLeast18YearsAgo isAtLeast18YearsAgoError
+    >> bind (Some >> succeed))
 
-  let passwordValidator field
-    =  chain (hasMinLengthOf Pass.min) (minLengthError field Pass.min)
-    ++ chain (hasMaxLengthOf Pass.max) (maxLengthError field Pass.max)
-    ++ chain (containsWords Pass.words >> not) (restrictedWordsError field)
+  | None ->
+    succeed None
 
-  let nameValidator field
-    =  chain (hasMinLengthOf Name.min) (minLengthError field Name.min)
-    ++ chain (hasMaxLengthOf Name.max) (maxLengthError field Name.max)
+  let genderValidator =
+    let max = 100
+
+    chain (hasMaxLengthOf max) (maxLengthError "Gender" max)
 
 module SignInRequest =
 
@@ -87,7 +109,8 @@ module SignInRequest =
 module SignUpRequest =
 
   open GenericValidators
-  let private cleanName r = {
+
+  let private cleanName (r: SignUpRequest) = {
     r with
       FirstName = cleanWhiteSpace r.FirstName
       LastName  = cleanWhiteSpace r.LastName
@@ -107,6 +130,24 @@ module ConfirmEmailRequest =
 
   let validate
     =  adapt (emailValidator "Email") (fun (r: ConfirmEmailRequest) -> r.Email)
+    >> either succeed (Validation >> fail)
+
+module UpdateProfileRequest =
+
+  open GenericValidators
+
+  let private cleanName (r: UpdateProfileRequest) = {
+    r with
+      FirstName = cleanWhiteSpace r.FirstName
+      LastName  = cleanWhiteSpace r.LastName
+  }
+
+  let validate
+    =  adapt (nameValidator "First name") (fun (r: UpdateProfileRequest) -> r.FirstName)
+    ++ adapt (nameValidator "Last name") (fun r -> r.LastName)
+    ++ adapt (birthdayValidator) (fun r -> r.Birthday)
+    ++ adapt genderValidator (fun r -> r.Gender)
+    >> map cleanName
     >> either succeed (Validation >> fail)
 
 module ChangeEmailRequest =

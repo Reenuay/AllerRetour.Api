@@ -177,6 +177,18 @@ let tryResendConfirmEmail (identity: CustomerIdentity) =
     return email, Command.createConfirmationToken email
   }
 
+let tryUpdateProfile (identity: CustomerIdentity) (request: UpdateProfileRequest) =
+  result {
+    let! profile
+      =  Query.profileByCustomerId identity.Id
+      |> Seq.tryExactlyOne
+      |> failIfNone (CustomerNotFound identity.Email)
+
+    Command.updateProfile profile request
+
+    return "Ok"
+  }
+
 let tryChangeEmail (identity: CustomerIdentity) (request: ChangeEmailRequest) =
   result {
     let! customer
@@ -236,6 +248,14 @@ let resendConfirmEmailHandler : HttpHandler
   >> map (ignore2 "Ok")
   >> toHandler
   |> bindCustomerIdentity
+
+let updateProfileHanlder : HttpHandler
+  = bindCustomerIdentity
+      (fun id ->
+        UpdateProfileRequest.validate
+        >> bind (tryUpdateProfile id)
+        >> toHandler
+        |> tryBindJson)
 
 let changeEmailHandler : HttpHandler
   = bindCustomerIdentity

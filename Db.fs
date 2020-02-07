@@ -16,6 +16,7 @@ type AllerRetourSchema =
   >
 
 type Customer = AllerRetourSchema.dataContext.``public.customersEntity``
+type Profile = AllerRetourSchema.dataContext.``public.customer_profilesEntity``
 type EmailConfirmationToken = AllerRetourSchema.dataContext.``public.email_confirmation_tokensEntity``
 
 let ctx = AllerRetourSchema.GetDataContext ()

@@ -15,12 +15,12 @@ let createConfirmationToken email =
 
   tokenString
 
-let registerCustomer (input: SignUpRequest) =
+let registerCustomer (request: SignUpRequest) =
   let cardId = Generators.randomCardId ()
-  let hash   = Pbkdf2.strongHash input.Password
+  let hash   = Pbkdf2.strongHash request.Password
 
   let customer = customers.Create ()
-  customer.Email        <- input.Email
+  customer.Email        <- request.Email
   customer.CardId       <- cardId
   customer.PasswordHash <- hash
 
@@ -28,8 +28,8 @@ let registerCustomer (input: SignUpRequest) =
 
   let profile = customerProfiles.Create ()
   profile.CustomerId <- customer.Id
-  profile.FirstName  <- input.FirstName
-  profile.LastName   <- input.LastName
+  profile.FirstName  <- request.FirstName
+  profile.LastName   <- request.LastName
 
   submit ()
 
@@ -41,12 +41,19 @@ let confirmEmail (customer: Customer) (token: EmailConfirmationToken) =
 
   submit()
 
+let updateProfile (profile: Profile) (request: UpdateProfileRequest) =
+  profile.FirstName <- request.FirstName
+  profile.LastName <- request.LastName
+  profile.Birthday <- request.Birthday
+  profile.Gender <- request.Gender
+
+  submit ()
+
 let changeEmail  (customer: Customer) newEmail =
   customer.Email          <- newEmail
   customer.EmailConfirmed <- false
 
   submit()
-
 
 let deleteAllTokensOf email =
   email
