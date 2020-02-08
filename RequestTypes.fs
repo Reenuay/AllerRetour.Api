@@ -40,6 +40,12 @@ type ChangeEmailRequest = {
 }
 
 [<CLIMutable>]
+type ChangePasswordRequest = {
+  NewPassword: string
+  OldPassword: string
+}
+
+[<CLIMutable>]
 type CustomerIdentity = {
   Id: int64
   Email: string
@@ -157,4 +163,13 @@ module ChangeEmailRequest =
   let validate
     =  adapt (emailValidator "New email") (fun r -> r.NewEmail)
     ++ adapt (passwordValidator "Password") (fun r -> r.Password)
+    >> either succeed (Validation >> fail)
+
+module ChangePasswordRequest =
+
+  open GenericValidators
+
+  let validate
+    =  adapt (passwordValidator "NewPassword") (fun r -> r.NewPassword)
+    ++ adapt (passwordValidator "OldPassword") (fun r -> r.OldPassword)
     >> either succeed (Validation >> fail)

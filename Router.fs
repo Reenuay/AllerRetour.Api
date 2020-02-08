@@ -229,6 +229,21 @@ let tryChangeEmail (identity: CustomerIdentity) (request: ChangeEmailRequest) =
     return customer.Email, Command.createConfirmationToken customer.Email
   }
 
+let tryChangePassword (identity: CustomerIdentity) (request: ChangePasswordRequest) =
+  result {
+    let! customer
+      =  Query.customerById identity.Id
+      |> Seq.tryExactlyOne
+      |> failIfNone (CustomerNotFound identity.Email)
+
+    do!  Pbkdf2.verify customer.PasswordHash request.OldPassword
+      |> failIfFalse (InvalidPassword identity.Email)
+
+    Command.changePassword customer request.NewPassword
+
+    return OK
+  }
+
 let signInHandler : HttpHandler
   =  SignInRequest.validate
   >> bind trySignIn
@@ -281,6 +296,14 @@ let changeEmailHandler : HttpHandler
         >> toHandler
         |> tryBindJson)
 
+let changePasswordHandler : HttpHandler
+  = bindCustomerIdentity
+      (fun id ->
+        ChangePasswordRequest.validate
+        >> bind (tryChangePassword id) // Add email notification
+        >> toHandler
+        |> tryBindJson)
+
 let createApp () : HttpHandler =
   subRoute "/api" (
     subRoute "/customer" (
@@ -294,9 +317,12 @@ let createApp () : HttpHandler =
           route "/email/change" >=> POST >=> changeEmailHandler
         ]
 
-        authorizeConfirmed >=> route "/profile" >=> choose [
-          GET >=> getProfileHandler
-          PUT >=> updateProfileHanlder
+        authorizeConfirmed >=> choose [
+          route "/profile" >=> choose [
+            GET >=> getProfileHandler
+            PUT >=> updateProfileHanlder
+          ]
+          route "/password/change" >=> POST >=> changePasswordHandler
         ]
 
         Status.notFoundError "Not found"

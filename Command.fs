@@ -15,6 +15,13 @@ let createConfirmationToken email =
 
   tokenString
 
+let changePassword (customer: Customer) password =
+  let hash = Pbkdf2.strongHash password
+
+  customer.PasswordHash <- hash
+
+  submit ()
+
 let registerCustomer (request: SignUpRequest) =
   let cardId = Generators.randomCardId ()
   let hash   = Pbkdf2.strongHash request.Password
