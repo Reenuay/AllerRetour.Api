@@ -214,7 +214,7 @@ let tryChangeEmail (identity: CustomerIdentity) (request: ChangeEmailRequest) =
       |> failIfFalse (InvalidPassword customer.Email)
 
     do!  customer.Email <> request.NewEmail
-      |> failIfFalse (Validation ["Old value is used. No need for changes."])
+      |> failIfFalse (Validation ["This is the old email address. Nothing to change."])
 
     do!  Query.customerByEmail request.NewEmail
       |> Seq.tryExactlyOne
