@@ -167,7 +167,7 @@ let tryResendConfirmEmail (identity: CustomerIdentity) =
     let! email =
       query {
         for c in Query.customerById identity.Id do
-        where (c.EmailConfirmed = false) // Check if '= false' is redundant
+        where (c.EmailConfirmed = false)
         select c.Email
       }
       |> Seq.tryExactlyOne
