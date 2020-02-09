@@ -4,23 +4,23 @@ open FSharp.Data.Sql
 open Db
 open RequestTypes
 
-let createConfirmationToken email =
+let createConfirmationToken customerId =
   let tokenString = Generators.randomGuid ()
 
   let token = passwordResetTokens.Create ()
-  token.Email     <- email
-  token.TokenHash <- Pbkdf2.strongHash tokenString
+  token.CustomerId <- customerId
+  token.TokenHash  <- Pbkdf2.strongHash tokenString
 
   submit ()
 
   tokenString
 
-let createResetToken email =
+let createResetToken customerId =
   let tokenString = Generators.randomPin ()
 
   let token = emailConfirmationTokens.Create ()
-  token.Email     <- email
-  token.TokenHash <- Pbkdf2.strongHash tokenString
+  token.CustomerId <- customerId
+  token.TokenHash  <- Pbkdf2.strongHash tokenString
 
   submit ()
 
@@ -73,15 +73,15 @@ let changeEmail  (customer: Customer) newEmail =
 
   submit()
 
-let deleteAllConfirmTokensOf email =
-  email
+let deleteAllConfirmTokensOf customerId =
+  customerId
   |> Query.emailConfirmationToken
   |> Seq.``delete all items from single table``
   |> Async.RunSynchronously
   |> ignore
 
-let deleteAllResetTokensOf email =
-  email
+let deleteAllResetTokensOf customerId =
+  customerId
   |> Query.passwordResetToken
   |> Seq.``delete all items from single table``
   |> Async.RunSynchronously

@@ -16,34 +16,34 @@ let customerById id =
     where (c.Id = id)
     select c
   }
-let emailConfirmationToken email =
+let emailConfirmationToken customerId =
   query {
     for t in emailConfirmationTokens do
-    where (t.Email = email)
+    where (t.CustomerId = customerId)
     select t
   }
 
-let unexpiredEmailConfirmationToken email =
+let unexpiredEmailConfirmationToken customerId =
   let now = DateTime.UtcNow
 
   query {
-    for t in emailConfirmationToken email do
+    for t in emailConfirmationToken customerId do
     where (t.DateExpires > now)
     select t
   }
 
-let passwordResetToken email =
+let passwordResetToken customerId =
   query {
     for t in passwordResetTokens do
-    where (t.Email = email)
+    where (t.CustomerId = customerId)
     select t
   }
 
-let unexpiredPasswordResetToken email =
+let unexpiredPasswordResetToken customerId =
   let now = DateTime.UtcNow
 
   query {
-    for t in passwordResetToken email do
+    for t in passwordResetToken customerId do
     where (t.DateExpires > now)
     select t
   }

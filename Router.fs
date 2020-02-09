@@ -111,7 +111,7 @@ let trySignUp (request: SignUpRequest) =
 
     let customer = Command.registerCustomer request
 
-    return customer.Email, Command.createConfirmationToken customer.Email
+    return customer.Email, Command.createConfirmationToken customer.Id
   }
 
 let tryConfirmEmail (request: EmailTokenRequest) =
@@ -122,7 +122,7 @@ let tryConfirmEmail (request: EmailTokenRequest) =
       |> failIfNone (TokenNotFound request.Email)
 
     let! token
-      =  Query.unexpiredEmailConfirmationToken request.Email
+      =  Query.unexpiredEmailConfirmationToken customer.Id
       |> Seq.tryExactlyOne
       |> failIfNone (TokenNotFound request.Email)
 
@@ -136,14 +136,14 @@ let tryConfirmEmail (request: EmailTokenRequest) =
 
 let trySendPasswordResetEmail (request: PasswordResetRequest) =
   result {
-    do!  Query.customerByEmail request.Email
+    let! customer
+      =  Query.customerByEmail request.Email
       |> Seq.tryExactlyOne
       |> failIfNone (CustomerNotFound request.Email)
-      |> map ignore
 
-    Command.deleteAllResetTokensOf request.Email
+    Command.deleteAllResetTokensOf customer.Id
 
-    return request.Email, Command.createResetToken request.Email
+    return request.Email, Command.createResetToken customer.Id
   }
 
 let tryGetProfile (identity: CustomerIdentity) =
@@ -170,19 +170,15 @@ let tryGetProfile (identity: CustomerIdentity) =
 
 let tryResendConfirmEmail (identity: CustomerIdentity) =
   result {
-    let! email =
-      query {
-        for c in Query.customerById identity.Id do
-        where (c.EmailConfirmed = false)
-        select c.Email
-      }
+    let! customer
+      =  Query.customerById identity.Id
       |> Seq.tryExactlyOne
       // TO DO: Return that user is already confirmed his email
       |> failIfNone (CustomerNotFound identity.Email)
 
-    Command.deleteAllConfirmTokensOf email
+    Command.deleteAllConfirmTokensOf customer.Id
 
-    return email, Command.createConfirmationToken email
+    return customer.Email, Command.createConfirmationToken customer.Id
   }
 
 let tryUpdateProfile (identity: CustomerIdentity) (request: UpdateProfileRequest) =
@@ -226,13 +222,11 @@ let tryChangeEmail (identity: CustomerIdentity) (request: ChangeEmailRequest) =
       |> Seq.tryExactlyOne
       |> failIfSome (EmailIsAlreadyRegistered request.NewEmail)
 
-    let oldEmail = customer.Email
+    Command.deleteAllConfirmTokensOf customer.Id
 
     Command.changeEmail customer request.NewEmail
 
-    Command.deleteAllConfirmTokensOf oldEmail
-
-    return customer.Email, Command.createConfirmationToken customer.Email
+    return customer.Email, Command.createConfirmationToken customer.Id
   }
 
 let tryChangePassword (identity: CustomerIdentity) (request: ChangePasswordRequest) =
