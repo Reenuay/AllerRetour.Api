@@ -1,5 +1,6 @@
 module AllerRetour.Router
 
+open FSharp.Data.Sql
 open FSharp.Control.Tasks.V2.ContextInsensitive
 open Giraffe
 open Logger
@@ -114,7 +115,7 @@ let trySignUp (request: SignUpRequest) =
     return customer.Email, Command.createConfirmationToken customer.Id
   }
 
-let tryConfirmEmail (request: EmailTokenRequest) =
+let tryConfirmEmail (request: ConfirmEmailRequest) =
   result {
     let! customer
       =  Query.customerByEmail request.Email
@@ -134,16 +135,39 @@ let tryConfirmEmail (request: EmailTokenRequest) =
     return OK
   }
 
-let trySendPasswordResetEmail (request: PasswordResetRequest) =
+let trySendPasswordResetEmail (request: PasswordResetEmailRequest) =
   result {
     let! customer
       =  Query.customerByEmail request.Email
       |> Seq.tryExactlyOne
       |> failIfNone (CustomerNotFound request.Email)
 
-    Command.deleteAllResetTokensOf customer.Id
+    customer.``public.password_reset_tokens by id``
+    |> Seq.``delete all items from single table``
+    |> Async.RunSynchronously
+    |> ignore
 
     return request.Email, Command.createResetToken customer.Id
+  }
+
+let tryPasswordReset (request: PasswordResetRequest) =
+  result {
+    let! customer
+      =  Query.customerByEmail request.Email
+      |> Seq.tryExactlyOne
+      |> failIfNone (TokenNotFound request.Email)
+
+    let! token
+      =  Query.passwordResetToken customer.Id
+      |> Seq.tryExactlyOne
+      |> failIfNone (TokenNotFound customer.Email)
+
+    do!  Pbkdf2.verify token.TokenHash request.Token
+      |> failIfFalse (TokenNotFound customer.Email)
+
+    Command.changePassword customer request.NewPassword
+
+    return OK
   }
 
 let tryGetProfile (identity: CustomerIdentity) =
@@ -176,7 +200,10 @@ let tryResendConfirmEmail (identity: CustomerIdentity) =
       // TO DO: Return that user is already confirmed his email
       |> failIfNone (CustomerNotFound identity.Email)
 
-    Command.deleteAllConfirmTokensOf customer.Id
+    customer.``public.email_confirmation_tokens by id``
+    |> Seq.``delete all items from single table``
+    |> Async.RunSynchronously
+    |> ignore
 
     return customer.Email, Command.createConfirmationToken customer.Id
   }
@@ -222,7 +249,10 @@ let tryChangeEmail (identity: CustomerIdentity) (request: ChangeEmailRequest) =
       |> Seq.tryExactlyOne
       |> failIfSome (EmailIsAlreadyRegistered request.NewEmail)
 
-    Command.deleteAllConfirmTokensOf customer.Id
+    customer.``public.email_confirmation_tokens by id``
+    |> Seq.``delete all items from single table``
+    |> Async.RunSynchronously
+    |> ignore
 
     Command.changeEmail customer request.NewEmail
 
@@ -261,16 +291,22 @@ let signUpHandler : HttpHandler
   |> tryBindJson
 
 let confirmEmailHandler : HttpHandler
-  =  EmailTokenRequest.validate
+  =  ConfirmEmailRequest.validate
   >> bind tryConfirmEmail
   >> toHandler
   |> tryBindQuery
 
 let sendPasswordResetEmailHandler : HttpHandler
-  =  PasswordResetRequest.validate
+  =  PasswordResetEmailRequest.validate
   >> bind trySendPasswordResetEmail
   >> map (tee Mail.sendReset)
   >> map (ignore2 OK)
+  >> toHandler
+  |> tryBindJson
+
+let passwordResetHandler : HttpHandler
+  =  PasswordResetRequest.validate
+  >> bind tryPasswordReset // Add email notification
   >> toHandler
   |> tryBindJson
 
@@ -321,6 +357,7 @@ let createApp () : HttpHandler =
           route "/signin" >=> signInHandler
           route "/signup" >=> signUpHandler
           route "/password/pin" >=> sendPasswordResetEmailHandler
+          route "/password/reset" >=> passwordResetHandler
         ]
 
         // TO DO: Protect from DOS attacks

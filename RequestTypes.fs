@@ -20,14 +20,21 @@ type SignUpRequest = {
 }
 
 [<CLIMutable>]
-type EmailTokenRequest = {
+type ConfirmEmailRequest = {
   Email: string
   Token: string
 }
 
 [<CLIMutable>]
+type PasswordResetEmailRequest = {
+  Email: string
+}
+
+[<CLIMutable>]
 type PasswordResetRequest = {
   Email: string
+  NewPassword: string
+  Token: string
 }
 
 [<CLIMutable>]
@@ -137,12 +144,20 @@ module SignUpRequest =
     >> map cleanName
     >> toValidation
 
-module EmailTokenRequest =
+module ConfirmEmailRequest =
 
   open GenericValidators
 
   let validate
-    =  adapt (emailValidator "Email") (fun (r: EmailTokenRequest) -> r.Email)
+    =  adapt (emailValidator "Email") (fun (r: ConfirmEmailRequest) -> r.Email)
+    >> toValidation
+
+module PasswordResetEmailRequest =
+
+  open GenericValidators
+
+  let validate
+    =  adapt (emailValidator "Email") (fun (r: PasswordResetEmailRequest) -> r.Email)
     >> toValidation
 
 module PasswordResetRequest =
@@ -151,6 +166,7 @@ module PasswordResetRequest =
 
   let validate
     =  adapt (emailValidator "Email") (fun (r: PasswordResetRequest) -> r.Email)
+    ++ adapt (passwordValidator "New password") (fun r -> r.NewPassword)
     >> toValidation
 
 module UpdateProfileRequest =

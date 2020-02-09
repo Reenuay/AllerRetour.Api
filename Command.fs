@@ -1,15 +1,16 @@
 module AllerRetour.Command
 
-open FSharp.Data.Sql
 open Db
 open RequestTypes
+
+let hash = Pbkdf2.strongHash
 
 let createConfirmationToken customerId =
   let tokenString = Generators.randomGuid ()
 
   let token = passwordResetTokens.Create ()
   token.CustomerId <- customerId
-  token.TokenHash  <- Pbkdf2.strongHash tokenString
+  token.TokenHash  <- hash tokenString
 
   submit ()
 
@@ -20,27 +21,24 @@ let createResetToken customerId =
 
   let token = emailConfirmationTokens.Create ()
   token.CustomerId <- customerId
-  token.TokenHash  <- Pbkdf2.strongHash tokenString
+  token.TokenHash  <- hash tokenString
 
   submit ()
 
   tokenString
 
 let changePassword (customer: Customer) password =
-  let hash = Pbkdf2.strongHash password
-
-  customer.PasswordHash <- hash
+  customer.PasswordHash <- hash password
 
   submit ()
 
 let registerCustomer (request: SignUpRequest) =
   let cardId = Generators.randomCardId ()
-  let hash   = Pbkdf2.strongHash request.Password
 
   let customer = customers.Create ()
   customer.Email        <- request.Email
   customer.CardId       <- cardId
-  customer.PasswordHash <- hash
+  customer.PasswordHash <- hash request.Password
 
   submit ()
 
@@ -72,17 +70,3 @@ let changeEmail  (customer: Customer) newEmail =
   customer.EmailConfirmed <- false
 
   submit()
-
-let deleteAllConfirmTokensOf customerId =
-  customerId
-  |> Query.emailConfirmationToken
-  |> Seq.``delete all items from single table``
-  |> Async.RunSynchronously
-  |> ignore
-
-let deleteAllResetTokensOf customerId =
-  customerId
-  |> Query.passwordResetToken
-  |> Seq.``delete all items from single table``
-  |> Async.RunSynchronously
-  |> ignore
