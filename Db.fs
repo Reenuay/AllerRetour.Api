@@ -17,10 +17,14 @@ type AllerRetourSchema =
 
 type Customer = AllerRetourSchema.dataContext.``public.customersEntity``
 type Profile = AllerRetourSchema.dataContext.``public.customer_profilesEntity``
-type EmailConfirmationToken = AllerRetourSchema.dataContext.``public.email_confirmation_tokensEntity``
+type EmailConfirmationToken =
+  AllerRetourSchema.dataContext.``public.email_confirmation_tokensEntity``
+type PasswordResetToken =
+  AllerRetourSchema.dataContext.``public.password_reset_tokensEntity``
 
 let ctx = AllerRetourSchema.GetDataContext ()
 let submit = ctx.SubmitUpdates
 let customers = ctx.Public.Customers
 let customerProfiles = ctx.Public.CustomerProfiles
 let emailConfirmationTokens = ctx.Public.EmailConfirmationTokens
+let passwordResetTokens = ctx.Public.PasswordResetTokens

@@ -81,12 +81,6 @@ let toHandler x
   |> ignore2
   |> warbler
 
-let sendConfirmEmail (email, token) =
-  try
-    Mail.sendConfirm email token
-  with
-  | exn -> logger.Error(exn.Message)
-
 let OK = "Ok"
 
 let trySignIn (request: SignInRequest) =
@@ -120,7 +114,7 @@ let trySignUp (request: SignUpRequest) =
     return customer.Email, Command.createConfirmationToken customer.Email
   }
 
-let tryConfirmEmail (request: ConfirmEmailRequest) =
+let tryConfirmEmail (request: EmailTokenRequest) =
   result {
     let! customer
       =  Query.customerByEmail request.Email
@@ -128,7 +122,7 @@ let tryConfirmEmail (request: ConfirmEmailRequest) =
       |> failIfNone (TokenNotFound request.Email)
 
     let! token
-      =  Query.emailConfirmationToken request.Email
+      =  Query.unexpiredEmailConfirmationToken request.Email
       |> Seq.tryExactlyOne
       |> failIfNone (TokenNotFound request.Email)
 
@@ -138,6 +132,12 @@ let tryConfirmEmail (request: ConfirmEmailRequest) =
     Command.confirmEmail customer token
 
     return OK
+  }
+
+let trySendPasswordResetEmail (request: PasswordResetRequest) =
+  result {
+    Command.deleteAllResetTokensOf request.Email
+    return request.Email, Command.createResetToken request.Email
   }
 
 let tryGetProfile (identity: CustomerIdentity) =
@@ -174,7 +174,7 @@ let tryResendConfirmEmail (identity: CustomerIdentity) =
       // TO DO: Return that user is already confirmed his email
       |> failIfNone (CustomerNotFound identity.Email)
 
-    Command.deleteAllTokensOf email
+    Command.deleteAllConfirmTokensOf email
 
     return email, Command.createConfirmationToken email
   }
@@ -224,7 +224,7 @@ let tryChangeEmail (identity: CustomerIdentity) (request: ChangeEmailRequest) =
 
     Command.changeEmail customer request.NewEmail
 
-    Command.deleteAllTokensOf oldEmail
+    Command.deleteAllConfirmTokensOf oldEmail
 
     return customer.Email, Command.createConfirmationToken customer.Email
   }
@@ -255,16 +255,24 @@ let signUpHandler : HttpHandler
   =  SignUpRequest.validate
   >> bind trySignUp
   >> failureLog
-  >> map (tee sendConfirmEmail)
+  >> map (tee Mail.sendConfirm)
   >> map (ignore2 OK)
   >> toHandler
   |> tryBindJson
 
 let confirmEmailHandler : HttpHandler
-  =  ConfirmEmailRequest.validate
+  =  EmailTokenRequest.validate
   >> bind tryConfirmEmail
   >> toHandler
   |> tryBindQuery
+
+let sendPasswordResetEmailHandler : HttpHandler
+  =  PasswordResetRequest.validate
+  >> bind trySendPasswordResetEmail
+  >> map (tee Mail.sendReset)
+  >> map (ignore2 OK)
+  >> toHandler
+  |> tryBindJson
 
 let getProfileHandler : HttpHandler
   =  tryGetProfile
@@ -273,7 +281,7 @@ let getProfileHandler : HttpHandler
 
 let resendConfirmEmailHandler : HttpHandler
   =  tryResendConfirmEmail
-  >> map (tee sendConfirmEmail)
+  >> map (tee Mail.sendConfirm)
   >> map (ignore2 OK)
   >> toHandler
   |> bindCustomerIdentity
@@ -291,7 +299,7 @@ let changeEmailHandler : HttpHandler
       (fun id ->
         ChangeEmailRequest.validate
         >> bind (tryChangeEmail id)
-        >> map (tee sendConfirmEmail)
+        >> map (tee Mail.sendConfirm)
         >> map (ignore2 OK)
         >> toHandler
         |> tryBindJson)
@@ -308,13 +316,19 @@ let createApp () : HttpHandler =
   subRoute "/api" (
     subRoute "/customer" (
       choose [
-        route "/signin" >=> POST >=> signInHandler // TO DO: Protect from DOS attacks
-        route "/signup" >=> POST >=> signUpHandler // TO DO: Protect from DOS attacks
-        route "/email/confirm" >=> GET >=> confirmEmailHandler // TO DO: Protect from DOS attacks
+        // TO DO: Protect from DOS attacks
+        POST >=> choose [
+          route "/signin" >=> signInHandler
+          route "/signup" >=> signUpHandler
+          route "/password/pin" >=> sendPasswordResetEmailHandler
+        ]
 
-        authorizeDefault >=> choose [
-          route "/email/resend" >=> POST >=> resendConfirmEmailHandler
-          route "/email/change" >=> POST >=> changeEmailHandler
+        // TO DO: Protect from DOS attacks
+        route "/email/confirm" >=> GET >=> confirmEmailHandler
+
+        authorizeDefault >=> POST >=> choose [
+          route "/email/resend" >=> resendConfirmEmailHandler
+          route "/email/change" >=> changeEmailHandler
         ]
 
         authorizeConfirmed >=> choose [

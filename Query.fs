@@ -17,13 +17,33 @@ let customerById id =
     select c
   }
 let emailConfirmationToken email =
+  query {
+    for t in emailConfirmationTokens do
+    where (t.Email = email)
+    select t
+  }
+
+let unexpiredEmailConfirmationToken email =
   let now = DateTime.UtcNow
 
   query {
-    for t in emailConfirmationTokens do
-    where (
-      t.Email = email
-      && t.DateExpires > now
-    )
+    for t in emailConfirmationToken email do
+    where (t.DateExpires > now)
+    select t
+  }
+
+let passwordResetToken email =
+  query {
+    for t in passwordResetTokens do
+    where (t.Email = email)
+    select t
+  }
+
+let unexpiredPasswordResetToken email =
+  let now = DateTime.UtcNow
+
+  query {
+    for t in passwordResetToken email do
+    where (t.DateExpires > now)
     select t
   }

@@ -20,9 +20,14 @@ type SignUpRequest = {
 }
 
 [<CLIMutable>]
-type ConfirmEmailRequest = {
+type EmailTokenRequest = {
   Email: string
   Token: string
+}
+
+[<CLIMutable>]
+type PasswordResetRequest = {
+  Email: string
 }
 
 [<CLIMutable>]
@@ -103,6 +108,8 @@ module private GenericValidators =
 
     chain (hasMaxLengthOf max) (maxLengthError "Gender" max)
 
+  let toValidation x = either succeed (Validation >> fail) x
+
 module SignInRequest =
 
   open GenericValidators
@@ -110,7 +117,7 @@ module SignInRequest =
   let validate
     =  adapt (emailValidator "Email") (fun (r: SignInRequest) -> r.Email)
     ++ adapt (passwordValidator "Password") (fun r -> r.Password)
-    >> either succeed (Validation >> fail)
+    >> toValidation
 
 module SignUpRequest =
 
@@ -128,15 +135,23 @@ module SignUpRequest =
     ++ adapt (emailValidator "Email") (fun r -> r.Email)
     ++ adapt (passwordValidator "Password") (fun r -> r.Password)
     >> map cleanName
-    >> either succeed (Validation >> fail)
+    >> toValidation
 
-module ConfirmEmailRequest =
+module EmailTokenRequest =
 
   open GenericValidators
 
   let validate
-    =  adapt (emailValidator "Email") (fun (r: ConfirmEmailRequest) -> r.Email)
-    >> either succeed (Validation >> fail)
+    =  adapt (emailValidator "Email") (fun (r: EmailTokenRequest) -> r.Email)
+    >> toValidation
+
+module PasswordResetRequest =
+
+  open GenericValidators
+
+  let validate
+    =  adapt (emailValidator "Email") (fun (r: PasswordResetRequest) -> r.Email)
+    >> toValidation
 
 module UpdateProfileRequest =
 
@@ -154,7 +169,7 @@ module UpdateProfileRequest =
     ++ adapt (birthdayValidator) (fun r -> r.Birthday)
     ++ adapt genderValidator (fun r -> r.Gender)
     >> map cleanName
-    >> either succeed (Validation >> fail)
+    >> toValidation
 
 module ChangeEmailRequest =
 
@@ -163,7 +178,7 @@ module ChangeEmailRequest =
   let validate
     =  adapt (emailValidator "New email") (fun r -> r.NewEmail)
     ++ adapt (passwordValidator "Password") (fun r -> r.Password)
-    >> either succeed (Validation >> fail)
+    >> toValidation
 
 module ChangePasswordRequest =
 
@@ -172,4 +187,4 @@ module ChangePasswordRequest =
   let validate
     =  adapt (passwordValidator "NewPassword") (fun r -> r.NewPassword)
     ++ adapt (passwordValidator "OldPassword") (fun r -> r.OldPassword)
-    >> either succeed (Validation >> fail)
+    >> toValidation
