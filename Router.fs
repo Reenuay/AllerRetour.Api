@@ -136,7 +136,13 @@ let tryConfirmEmail (request: EmailTokenRequest) =
 
 let trySendPasswordResetEmail (request: PasswordResetRequest) =
   result {
+    do!  Query.customerByEmail request.Email
+      |> Seq.tryExactlyOne
+      |> failIfNone (CustomerNotFound request.Email)
+      |> map ignore
+
     Command.deleteAllResetTokensOf request.Email
+
     return request.Email, Command.createResetToken request.Email
   }
 
