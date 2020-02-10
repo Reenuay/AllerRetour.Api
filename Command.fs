@@ -8,7 +8,7 @@ let hash = Pbkdf2.strongHash
 let createConfirmationToken customerId =
   let tokenString = Generators.randomGuid ()
 
-  let token = passwordResetTokens.Create ()
+  let token = emailConfirmationTokens.Create ()
   token.CustomerId <- customerId
   token.TokenHash  <- hash tokenString
 
@@ -19,7 +19,7 @@ let createConfirmationToken customerId =
 let createResetToken customerId =
   let tokenString = Generators.randomPin ()
 
-  let token = emailConfirmationTokens.Create ()
+  let token = passwordResetTokens.Create ()
   token.CustomerId <- customerId
   token.TokenHash  <- hash tokenString
 
