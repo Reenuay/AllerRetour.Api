@@ -36,8 +36,8 @@ let sendReset (email, token) =
     Subject = "Password reset"
     Body = sprintf """
       This message was send to you from Aller Retour service. If it weren't you just ignore it.
-      Use the PIN below to reset your password.
-      This pin will expire in 15 minutes.
+      Use the verification code below to reset your password.
+      This code will expire in 15 minutes.
       <b>%s</b>
     """ token
   }
