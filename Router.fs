@@ -349,35 +349,33 @@ let changePasswordHandler : HttpHandler
         |> tryBindJson)
 
 let createApp () : HttpHandler =
-  subRoute "/api" (
-    subRoute "/customer" (
-      choose [
-        // TO DO: Protect from DOS attacks routes without authorization
-        route "/signin" >=> POST >=> signInHandler
-        route "/signup" >=> POST >=> signUpHandler
+  subRoute "/api/customer" (
+    choose [
+      // TO DO: Protect from DOS attacks routes without authorization
+      route "/signin" >=> POST >=> signInHandler
+      route "/signup" >=> POST >=> signUpHandler
 
-        subRoute "/password" (
-          choose [
-            route "/pin"    >=> POST >=> sendPasswordResetEmailHandler
-            route "/reset"  >=> POST >=> passwordResetHandler
-            route "/change" >=> authorizeConfirmed >=> POST >=> changePasswordHandler
-          ]
-        )
-
-        subRoute "/email" (
-          choose [
-            route "/confirm" >=> GET >=> confirmEmailHandler
-            route "/resend"  >=> authorizeDefault >=> POST >=> resendConfirmEmailHandler
-            route "/change"  >=> authorizeDefault >=> POST >=> changeEmailHandler
-          ]
-        )
-
-        route "/profile" >=> authorizeConfirmed >=> choose [
-          GET >=> getProfileHandler
-          PUT >=> updateProfileHanlder
+      subRoute "/password" (
+        choose [
+          route "/pin"    >=> POST >=> sendPasswordResetEmailHandler
+          route "/reset"  >=> POST >=> passwordResetHandler
+          route "/change" >=> authorizeConfirmed >=> POST >=> changePasswordHandler
         ]
+      )
 
-        Status.notFoundError "Not found"
+      subRoute "/email" (
+        choose [
+          route "/confirm" >=> GET >=> confirmEmailHandler
+          route "/resend"  >=> authorizeDefault >=> POST >=> resendConfirmEmailHandler
+          route "/change"  >=> authorizeDefault >=> POST >=> changeEmailHandler
+        ]
+      )
+
+      route "/profile" >=> authorizeConfirmed >=> choose [
+        GET >=> getProfileHandler
+        PUT >=> updateProfileHanlder
       ]
-    )
+
+      Status.notFoundError "Not found"
+    ]
   )
