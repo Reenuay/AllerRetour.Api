@@ -352,28 +352,29 @@ let createApp () : HttpHandler =
   subRoute "/api" (
     subRoute "/customer" (
       choose [
-        // TO DO: Protect from DOS attacks
-        POST >=> choose [
-          route "/signin" >=> signInHandler
-          route "/signup" >=> signUpHandler
-          route "/password/pin" >=> sendPasswordResetEmailHandler
-          route "/password/reset" >=> passwordResetHandler
-        ]
+        // TO DO: Protect from DOS attacks routes without authorization
+        route "/signin" >=> POST >=> signInHandler
+        route "/signup" >=> POST >=> signUpHandler
 
-        // TO DO: Protect from DOS attacks
-        route "/email/confirm" >=> GET >=> confirmEmailHandler
-
-        authorizeDefault >=> POST >=> choose [
-          route "/email/resend" >=> resendConfirmEmailHandler
-          route "/email/change" >=> changeEmailHandler
-        ]
-
-        authorizeConfirmed >=> choose [
-          route "/profile" >=> choose [
-            GET >=> getProfileHandler
-            PUT >=> updateProfileHanlder
+        subRoute "/password" (
+          choose [
+            route "/pin"    >=> POST >=> sendPasswordResetEmailHandler
+            route "/reset"  >=> POST >=> passwordResetHandler
+            route "/change" >=> authorizeConfirmed >=> POST >=> changePasswordHandler
           ]
-          route "/password/change" >=> POST >=> changePasswordHandler
+        )
+
+        subRoute "/email" (
+          choose [
+            route "/confirm" >=> GET >=> confirmEmailHandler
+            route "/resend"  >=> authorizeDefault >=> POST >=> resendConfirmEmailHandler
+            route "/change"  >=> authorizeDefault >=> POST >=> changeEmailHandler
+          ]
+        )
+
+        route "/profile" >=> authorizeConfirmed >=> choose [
+          GET >=> getProfileHandler
+          PUT >=> updateProfileHanlder
         ]
 
         Status.notFoundError "Not found"
